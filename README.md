@@ -1,1 +1,1 @@
-# Индекс долларизации депозитов Казахстана
+# Kazakhstan Deposit Dollarization Index
