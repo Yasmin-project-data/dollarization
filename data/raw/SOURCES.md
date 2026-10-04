@@ -49,3 +49,16 @@
 - Layout: months across columns (KZT and СКВ = freely convertible currency), deposit types down the rows; row "Депозиты физических лиц" = overall average rate used in the model
 - Note: when pasted, Excel converted month headers "MM.YY" into dates (2010-2012 as day.month of 2026, from 2013 as month.year); decoded back in src/ingest.py (decode_month_header) and checked for 200 consecutive months
 - Note: "-" in the table means not published
+
+## Consumer price index (CPI), month on month
+- File: cpi_mom_taldau.xls
+- Publisher: Bureau of National Statistics, Agency for Strategic Planning and Reforms of the Republic of Kazakhstan
+- Source system: Taldau (https://taldau.stat.gov.kz)
+- Indicator: Индекс потребительских цен, code КСП 261601, unit: percent, frequency: month
+- Classification: Republic of Kazakhstan; reporting period to previous period; all goods and services
+- Period in file: 2011-01 to 2026-09 (189 months; earliest available in Taldau)
+- Retrieved: 2026-10-04
+- Format: XLS (old Excel format; read with the xlrd package)
+- Transformations (src/ingest.py): chained into an index (December 2010 = 100); year-on-year inflation = product of the last 12 monthly changes
+- Note: monthly values are rounded to 0.1, so computed y/y inflation can differ from the official y/y figure by about 0.1 pp
+- Note: stat.gov.kz dynamic tables only offer monthly CPI from 2022, so Taldau was used

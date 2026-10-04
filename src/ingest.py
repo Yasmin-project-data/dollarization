@@ -6,10 +6,12 @@ Reads (never modified):
     data/raw/usd_kzt_daily_nbk_api.csv        daily official USD/KZT rate
     data/raw/manual_values.csv                hand-transcribed values (documented)
     data/raw/deposit_rates_nbk.xlsx           household deposit rates, KZT and FX
+    data/raw/cpi_mom_taldau.xls               CPI, month on month (Taldau)
 Writes:
     data/processed/deposits.csv        deposits and dollarization, monthly
     data/processed/exchange_rate.csv   USD/KZT monthly average, end of month
     data/processed/deposit_rates.csv   household deposit rates, monthly
+    data/processed/cpi.csv             CPI index and inflation, monthly
     data/processed/monthly.csv         everything merged, one row per month
 
 Run from the project folder:
@@ -24,11 +26,13 @@ RAW_FILE = Path("data/raw/deposits_individuals_nbk.xlsx")
 RATES_FILE = Path("data/raw/usd_kzt_daily_nbk_api.csv")
 MANUAL_FILE = Path("data/raw/manual_values.csv")
 DEPOSIT_RATES_FILE = Path("data/raw/deposit_rates_nbk.xlsx")
+CPI_FILE = Path("data/raw/cpi_mom_taldau.xls")
 
 OUT_DIR = Path("data/processed")
 OUT_DEPOSITS = OUT_DIR / "deposits.csv"
 OUT_RATES = OUT_DIR / "exchange_rate.csv"
 OUT_DEPOSIT_RATES = OUT_DIR / "deposit_rates.csv"
+OUT_CPI = OUT_DIR / "cpi.csv"
 OUT_MONTHLY = OUT_DIR / "monthly.csv"
 
 # A month needs at least this many published daily rates for its average
@@ -310,6 +314,58 @@ def build_deposit_rates(path=DEPOSIT_RATES_FILE):
 
 
 # ---------------------------------------------------------------------------
+# Consumer prices (CPI)
+# ---------------------------------------------------------------------------
+# Taldau export: a title block, then one header row with month names
+# ("Январь 2011 г.") and one row per region. Values are "previous month = 100"
+# with a decimal comma ("101,7").
+
+CPI_REGION = "РЕСПУБЛИКА КАЗАХСТАН"
+MONTHS_RU = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль",
+             "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
+
+
+def parse_month_ru(text):
+    """'Январь 2011 г.' -> Period('2011-01')."""
+    parts = str(text).split()
+    return pd.Period(year=int(parts[1]), month=MONTHS_RU.index(parts[0]) + 1,
+                     freq="M")
+
+
+def build_cpi(path=CPI_FILE):
+    """Monthly CPI: m/m inflation, a chained index and y/y inflation."""
+    if not path.exists():
+        raise FileNotFoundError(f"Raw file not found: {path}")
+    raw = pd.read_excel(path, header=None, dtype=str)  # needs the xlrd package
+
+    first_col = raw[0].fillna("").str.strip()
+    header_row = first_col[first_col == "Регион"].index
+    data_row = first_col[first_col == CPI_REGION].index
+    if len(header_row) != 1 or len(data_row) != 1:
+        raise ValueError(f"Could not find header or '{CPI_REGION}' row in {path}.")
+
+    header = raw.loc[header_row[0], 1:]
+    values = raw.loc[data_row[0], 1:]
+    cpi = pd.DataFrame({
+        "period": [parse_month_ru(h) for h in header],
+        "cpi_mom": [float(str(v).replace(",", ".")) for v in values],
+    })
+
+    expected = pd.period_range(cpi["period"].iloc[0], periods=len(cpi), freq="M")
+    if list(cpi["period"]) != list(expected):
+        raise ValueError("CPI months are not consecutive.")
+
+    cpi["inflation_mom_pct"] = cpi["cpi_mom"] - 100
+    # Chain the monthly changes into an index: December 2010 = 100.
+    cpi["cpi_index"] = 100 * (cpi["cpi_mom"] / 100).cumprod()
+    # Year-on-year inflation: product of the last 12 monthly changes.
+    cpi["inflation_yoy_pct"] = 100 * (
+        (cpi["cpi_mom"] / 100).rolling(12).apply(lambda x: x.prod(), raw=True) - 1
+    )
+    return cpi
+
+
+# ---------------------------------------------------------------------------
 # Merge and save
 # ---------------------------------------------------------------------------
 
@@ -323,10 +379,16 @@ def add_fx_in_usd(monthly):
     return monthly
 
 
-def merge_monthly(deposits, rates, deposit_rates):
-    """One row per month; keep only months present in all tables."""
+def merge_monthly(deposits, rates, deposit_rates, cpi):
+    """One row per deposit month.
+
+    Exchange rate and deposit rates cover the whole deposit period.
+    CPI starts later (2011), so earlier months get empty CPI values;
+    the model chooses its own sample window.
+    """
     monthly = deposits.merge(rates, on="period", how="inner")
     monthly = monthly.merge(deposit_rates, on="period", how="inner")
+    monthly = monthly.merge(cpi, on="period", how="left")
     return add_fx_in_usd(monthly)
 
 
@@ -339,11 +401,13 @@ def main():
     deposits = build_deposits()
     rates = build_exchange_rate()
     deposit_rates = build_deposit_rates()
-    monthly = merge_monthly(deposits, rates, deposit_rates)
+    cpi = build_cpi()
+    monthly = merge_monthly(deposits, rates, deposit_rates, cpi)
 
     save(deposits, OUT_DEPOSITS)
     save(rates, OUT_RATES)
     save(deposit_rates, OUT_DEPOSIT_RATES)
+    save(cpi, OUT_CPI)
     save(monthly, OUT_MONTHLY)
 
     first, last = monthly["period"].iloc[0], monthly["period"].iloc[-1]
@@ -351,10 +415,12 @@ def main():
     print(f"Deposits:      {len(deposits)} months -> {OUT_DEPOSITS}")
     print(f"Exchange rate: {len(rates)} months -> {OUT_RATES}")
     print(f"Deposit rates: {len(deposit_rates)} months -> {OUT_DEPOSIT_RATES}")
+    print(f"CPI:           {len(cpi)} months -> {OUT_CPI}")
     print(f"Merged:        {len(monthly)} months ({first} to {last}) -> {OUT_MONTHLY}")
     print(f"Latest ({last}): dollarization {latest['dollarization_pct']:.1f}%, "
           f"USD/KZT average {latest['usd_kzt_avg']:.2f}, "
-          f"deposit rates KZT {latest['rate_kzt']:.1f}% / FX {latest['rate_fx']:.1f}%")
+          f"deposit rates KZT {latest['rate_kzt']:.1f}% / FX {latest['rate_fx']:.1f}%, "
+          f"inflation y/y {latest['inflation_yoy_pct']:.1f}%")
 
 
 if __name__ == "__main__":
