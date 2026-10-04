@@ -7,11 +7,13 @@ Reads (never modified):
     data/raw/manual_values.csv                hand-transcribed values (documented)
     data/raw/deposit_rates_nbk.xlsx           household deposit rates, KZT and FX
     data/raw/cpi_mom_taldau.xls               CPI, month on month (Taldau)
+    data/raw/brent_fred.csv                   Brent oil price, USD/barrel (FRED)
 Writes:
     data/processed/deposits.csv        deposits and dollarization, monthly
     data/processed/exchange_rate.csv   USD/KZT monthly average, end of month
     data/processed/deposit_rates.csv   household deposit rates, monthly
     data/processed/cpi.csv             CPI index and inflation, monthly
+    data/processed/oil.csv             Brent oil price, monthly
     data/processed/monthly.csv         everything merged, one row per month
 
 Run from the project folder:
@@ -27,12 +29,14 @@ RATES_FILE = Path("data/raw/usd_kzt_daily_nbk_api.csv")
 MANUAL_FILE = Path("data/raw/manual_values.csv")
 DEPOSIT_RATES_FILE = Path("data/raw/deposit_rates_nbk.xlsx")
 CPI_FILE = Path("data/raw/cpi_mom_taldau.xls")
+OIL_FILE = Path("data/raw/brent_fred.csv")
 
 OUT_DIR = Path("data/processed")
 OUT_DEPOSITS = OUT_DIR / "deposits.csv"
 OUT_RATES = OUT_DIR / "exchange_rate.csv"
 OUT_DEPOSIT_RATES = OUT_DIR / "deposit_rates.csv"
 OUT_CPI = OUT_DIR / "cpi.csv"
+OUT_OIL = OUT_DIR / "oil.csv"
 OUT_MONTHLY = OUT_DIR / "monthly.csv"
 
 # A month needs at least this many published daily rates for its average
@@ -366,6 +370,30 @@ def build_cpi(path=CPI_FILE):
 
 
 # ---------------------------------------------------------------------------
+# Oil price
+# ---------------------------------------------------------------------------
+
+def build_oil(path=OIL_FILE):
+    """Monthly Brent price (USD per barrel) from the FRED CSV.
+
+    FRED files have two columns: a date (first day of the month) and the
+    value; missing values are written as '.'.
+    """
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Raw file not found: {path}. Run: python src/download_oil.py"
+        )
+    raw = pd.read_csv(path, na_values=".")
+    if raw.shape[1] != 2:
+        raise ValueError(f"Expected 2 columns in {path}, found {raw.shape[1]}.")
+    oil = pd.DataFrame({
+        "period": pd.to_datetime(raw.iloc[:, 0]).dt.to_period("M"),
+        "brent_usd": raw.iloc[:, 1].astype(float),
+    })
+    return oil.dropna().reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
 # Merge and save
 # ---------------------------------------------------------------------------
 
@@ -379,7 +407,7 @@ def add_fx_in_usd(monthly):
     return monthly
 
 
-def merge_monthly(deposits, rates, deposit_rates, cpi):
+def merge_monthly(deposits, rates, deposit_rates, cpi, oil):
     """One row per deposit month.
 
     Exchange rate and deposit rates cover the whole deposit period.
@@ -389,6 +417,7 @@ def merge_monthly(deposits, rates, deposit_rates, cpi):
     monthly = deposits.merge(rates, on="period", how="inner")
     monthly = monthly.merge(deposit_rates, on="period", how="inner")
     monthly = monthly.merge(cpi, on="period", how="left")
+    monthly = monthly.merge(oil, on="period", how="left")
     return add_fx_in_usd(monthly)
 
 
@@ -402,12 +431,14 @@ def main():
     rates = build_exchange_rate()
     deposit_rates = build_deposit_rates()
     cpi = build_cpi()
-    monthly = merge_monthly(deposits, rates, deposit_rates, cpi)
+    oil = build_oil()
+    monthly = merge_monthly(deposits, rates, deposit_rates, cpi, oil)
 
     save(deposits, OUT_DEPOSITS)
     save(rates, OUT_RATES)
     save(deposit_rates, OUT_DEPOSIT_RATES)
     save(cpi, OUT_CPI)
+    save(oil, OUT_OIL)
     save(monthly, OUT_MONTHLY)
 
     first, last = monthly["period"].iloc[0], monthly["period"].iloc[-1]
@@ -416,11 +447,13 @@ def main():
     print(f"Exchange rate: {len(rates)} months -> {OUT_RATES}")
     print(f"Deposit rates: {len(deposit_rates)} months -> {OUT_DEPOSIT_RATES}")
     print(f"CPI:           {len(cpi)} months -> {OUT_CPI}")
+    print(f"Oil (Brent):   {len(oil)} months -> {OUT_OIL}")
     print(f"Merged:        {len(monthly)} months ({first} to {last}) -> {OUT_MONTHLY}")
     print(f"Latest ({last}): dollarization {latest['dollarization_pct']:.1f}%, "
           f"USD/KZT average {latest['usd_kzt_avg']:.2f}, "
           f"deposit rates KZT {latest['rate_kzt']:.1f}% / FX {latest['rate_fx']:.1f}%, "
-          f"inflation y/y {latest['inflation_yoy_pct']:.1f}%")
+          f"inflation y/y {latest['inflation_yoy_pct']:.1f}%, "
+          f"Brent {latest['brent_usd']:.1f} USD")
 
 
 if __name__ == "__main__":

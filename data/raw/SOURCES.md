@@ -62,3 +62,14 @@
 - Transformations (src/ingest.py): chained into an index (December 2010 = 100); year-on-year inflation = product of the last 12 monthly changes
 - Note: monthly values are rounded to 0.1, so computed y/y inflation can differ from the official y/y figure by about 0.1 pp
 - Note: stat.gov.kz dynamic tables only offer monthly CPI from 2022, so Taldau was used
+
+## Brent crude oil price
+- File: brent_fred.csv
+- Publisher: International Monetary Fund, via Federal Reserve Bank of St. Louis (FRED)
+- Series: POILBREUSDM - Global price of Brent Crude, U.S. Dollars per Barrel, monthly, not seasonally adjusted
+- URL: https://fred.stlouisfed.org/graph/fredgraph.csv?id=POILBREUSDM (free, no API key)
+- Downloaded by: src/download_oil.py
+- Retrieved: 2026-10-04
+- Note: dates in the file are the first day of each month; converted to monthly periods in src/ingest.py
+- Period in file: 1992-01 to 2026-07 (415 months)
+- Publication lag: about 2 months (August 2026 not yet available on 2026-10-04)
