@@ -1,8 +1,14 @@
 """
-Data layer: raw NBK Excel file -> clean monthly table.
+Data layer: raw files -> clean monthly tables.
 
-Reads:  data/raw/deposits_individuals_nbk.xlsx  (never modified)
-Writes: data/processed/deposits.csv
+Reads (never modified):
+    data/raw/deposits_individuals_nbk.xlsx   household deposits by currency
+    data/raw/usd_kzt_daily_nbk_api.csv        daily official USD/KZT rate
+    data/raw/manual_values.csv                hand-transcribed values (documented)
+Writes:
+    data/processed/deposits.csv        deposits and dollarization, monthly
+    data/processed/exchange_rate.csv   USD/KZT monthly average, end of month
+    data/processed/monthly.csv         everything merged, one row per month
 
 Run from the project folder:
     python src/ingest.py
@@ -13,7 +19,17 @@ from pathlib import Path
 import pandas as pd
 
 RAW_FILE = Path("data/raw/deposits_individuals_nbk.xlsx")
-OUT_FILE = Path("data/processed/deposits.csv")
+RATES_FILE = Path("data/raw/usd_kzt_daily_nbk_api.csv")
+MANUAL_FILE = Path("data/raw/manual_values.csv")
+
+OUT_DIR = Path("data/processed")
+OUT_DEPOSITS = OUT_DIR / "deposits.csv"
+OUT_RATES = OUT_DIR / "exchange_rate.csv"
+OUT_MONTHLY = OUT_DIR / "monthly.csv"
+
+# A month needs at least this many published daily rates for its average
+# to be computed from daily data; otherwise a documented manual value is used.
+MIN_DAYS_FOR_AVERAGE = 15
 
 # The NBK table has a 6-row header with merged cells, so we name the
 # columns ourselves, in the order they appear in the file.
@@ -121,8 +137,8 @@ def add_dollarization(data):
     return data
 
 
-def build_table(path=RAW_FILE):
-    """Run all transformations in order and return the clean table."""
+def build_deposits(path=RAW_FILE):
+    """Run all deposit transformations in order and return the clean table."""
     raw = read_raw(path)
     check_layout(raw)
     data = keep_data_rows(raw)
@@ -143,15 +159,127 @@ def build_table(path=RAW_FILE):
     return data
 
 
-def main():
-    data = build_table()
-    OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    data.to_csv(OUT_FILE, index=False, float_format="%.4f")
+# ---------------------------------------------------------------------------
+# Exchange rate
+# ---------------------------------------------------------------------------
 
-    first, last = data["period"].iloc[0], data["period"].iloc[-1]
-    latest = data["dollarization_pct"].iloc[-1]
-    print(f"Saved {len(data)} months ({first} to {last}) to {OUT_FILE}")
-    print(f"Latest dollarization ({last}): {latest:.1f}%")
+def read_daily_rates(path=RATES_FILE):
+    """Read daily USD/KZT rates downloaded from the NBK API."""
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Raw file not found: {path}. Run: python src/download_rates.py"
+        )
+    rates = pd.read_csv(path, parse_dates=["date"])
+    if (rates["quant"] != 1).any():
+        raise ValueError("Unexpected quant: rates must be per 1 USD.")
+    if rates["date"].duplicated().any():
+        raise ValueError("Duplicate dates in the daily rate file.")
+    return rates.set_index("date")["usd_kzt"].sort_index()
+
+
+def fill_calendar_gaps(daily):
+    """Put every calendar day in the series and carry the last rate forward.
+
+    NBK publishes no rate on some days (weekends, a few missing dates);
+    the previous official rate stays in force on those days.
+    Returns the filled series and a flag that marks filled days.
+    """
+    all_days = pd.date_range(daily.index.min(), daily.index.max(), freq="D")
+    published = daily.reindex(all_days)
+    was_missing = published.isna()
+    return published.ffill(), was_missing
+
+
+def monthly_rates(daily, was_missing):
+    """Monthly average, end-of-month rate and number of published days."""
+    by_month = daily.groupby(daily.index.to_period("M"))
+    table = pd.DataFrame({
+        "usd_kzt_avg": by_month.mean(),
+        "usd_kzt_eom": by_month.last(),
+    })
+    table["published_days"] = (~was_missing).groupby(
+        was_missing.index.to_period("M")).sum()
+    table.index.name = "period"
+    return table
+
+
+def read_manual_values(path=MANUAL_FILE):
+    """Read hand-transcribed values; each row documents its own source."""
+    if not path.exists():
+        return pd.DataFrame(columns=["series", "period", "value", "source"])
+    manual = pd.read_csv(path, dtype={"period": str})
+    manual["period"] = pd.PeriodIndex(manual["period"], freq="M")
+    return manual
+
+
+def apply_manual_averages(table, manual):
+    """Use the documented manual monthly average where daily data are thin."""
+    table["usd_kzt_avg_source"] = "daily_api"
+    rows = manual[manual["series"] == "usd_kzt_monthly_avg"]
+    for _, row in rows.iterrows():
+        if row["period"] in table.index:
+            table.loc[row["period"], "usd_kzt_avg"] = float(row["value"])
+            table.loc[row["period"], "usd_kzt_avg_source"] = "manual_nbk"
+    thin = (table["published_days"] < MIN_DAYS_FOR_AVERAGE) & (
+        table["usd_kzt_avg_source"] == "daily_api")
+    if thin.any():
+        months = ", ".join(str(p) for p in table.index[thin])
+        raise ValueError(
+            f"Too few published daily rates for: {months}. "
+            "Add a documented value to data/raw/manual_values.csv."
+        )
+    return table
+
+
+def build_exchange_rate():
+    """Run all exchange-rate transformations and return the monthly table."""
+    daily, was_missing = fill_calendar_gaps(read_daily_rates())
+    table = monthly_rates(daily, was_missing)
+    table = apply_manual_averages(table, read_manual_values())
+    return table.reset_index()
+
+
+# ---------------------------------------------------------------------------
+# Merge and save
+# ---------------------------------------------------------------------------
+
+def add_fx_in_usd(monthly):
+    """Foreign-currency deposits in million USD (at the end-of-month rate).
+
+    Deposits are end-of-month stocks, so they are converted at the
+    end-of-month rate. This removes the pure revaluation effect.
+    """
+    monthly["fx_total_usd_mn"] = monthly["fx_total"] / monthly["usd_kzt_eom"]
+    return monthly
+
+
+def merge_monthly(deposits, rates):
+    """One row per month; keep only months present in both tables."""
+    monthly = deposits.merge(rates, on="period", how="inner")
+    return add_fx_in_usd(monthly)
+
+
+def save(table, path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    table.to_csv(path, index=False, float_format="%.4f")
+
+
+def main():
+    deposits = build_deposits()
+    rates = build_exchange_rate()
+    monthly = merge_monthly(deposits, rates)
+
+    save(deposits, OUT_DEPOSITS)
+    save(rates, OUT_RATES)
+    save(monthly, OUT_MONTHLY)
+
+    first, last = monthly["period"].iloc[0], monthly["period"].iloc[-1]
+    latest = monthly.iloc[-1]
+    print(f"Deposits:      {len(deposits)} months -> {OUT_DEPOSITS}")
+    print(f"Exchange rate: {len(rates)} months -> {OUT_RATES}")
+    print(f"Merged:        {len(monthly)} months ({first} to {last}) -> {OUT_MONTHLY}")
+    print(f"Latest ({last}): dollarization {latest['dollarization_pct']:.1f}%, "
+          f"USD/KZT average {latest['usd_kzt_avg']:.2f}")
 
 
 if __name__ == "__main__":
