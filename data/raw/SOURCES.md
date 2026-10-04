@@ -17,3 +17,18 @@
 - Note: includes non-resident accounts (NBK footnote)
 - Note: December 2019 data include final turnovers (NBK footnote)
 - Revisions: to be checked
+
+## USD/KZT official exchange rate, daily
+- File: usd_kzt_daily_nbk_api.csv
+- Publisher: National Bank of the Republic of Kazakhstan (NBK)
+- API query: https://nationalbank.kz/rss/get_rates.cfm?fdate=DD.MM.YYYY (one request per calendar day)
+- Downloaded by: src/download_rates.py
+- Period: 2010-01-01 to 2026-09-30
+- Retrieved: 2026-10-04
+- Frequency: daily official rate; converted to monthly average and end-of-month in src/ingest.py
+- Note: XLSX export on the NBK website returned AUD regardless of currency selected, and the PDF report had unreadable pages, so the official NBK API was used
+## Manually transcribed values
+- File: manual_values.csv
+- Contents: USD/KZT official monthly average for August 2023, transcribed by hand from the NBK file "2023 год" at https://nationalbank.kz/ru/news/oficialnye-kursy
+- Reason: daily rates for 2023-07-28 to 2023-08-28 are missing from both the NBK API and the NBK website report; only 4 daily values remain for August 2023
+- Retrieved: 2026-10-04
