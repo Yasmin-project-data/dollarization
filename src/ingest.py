@@ -5,9 +5,11 @@ Reads (never modified):
     data/raw/deposits_individuals_nbk.xlsx   household deposits by currency
     data/raw/usd_kzt_daily_nbk_api.csv        daily official USD/KZT rate
     data/raw/manual_values.csv                hand-transcribed values (documented)
+    data/raw/deposit_rates_nbk.xlsx           household deposit rates, KZT and FX
 Writes:
     data/processed/deposits.csv        deposits and dollarization, monthly
     data/processed/exchange_rate.csv   USD/KZT monthly average, end of month
+    data/processed/deposit_rates.csv   household deposit rates, monthly
     data/processed/monthly.csv         everything merged, one row per month
 
 Run from the project folder:
@@ -21,10 +23,12 @@ import pandas as pd
 RAW_FILE = Path("data/raw/deposits_individuals_nbk.xlsx")
 RATES_FILE = Path("data/raw/usd_kzt_daily_nbk_api.csv")
 MANUAL_FILE = Path("data/raw/manual_values.csv")
+DEPOSIT_RATES_FILE = Path("data/raw/deposit_rates_nbk.xlsx")
 
 OUT_DIR = Path("data/processed")
 OUT_DEPOSITS = OUT_DIR / "deposits.csv"
 OUT_RATES = OUT_DIR / "exchange_rate.csv"
+OUT_DEPOSIT_RATES = OUT_DIR / "deposit_rates.csv"
 OUT_MONTHLY = OUT_DIR / "monthly.csv"
 
 # A month needs at least this many published daily rates for its average
@@ -240,6 +244,72 @@ def build_exchange_rate():
 
 
 # ---------------------------------------------------------------------------
+# Deposit interest rates
+# ---------------------------------------------------------------------------
+# The NBK web table was copied into Excel. Layout: months run across the
+# columns (two columns per month: KZT and СКВ = freely convertible currency),
+# deposit types run down the rows. The first row is the overall average
+# rate on household deposits, which is the one we use.
+
+RATES_ROW_LABEL = "Депозиты физических лиц"
+FIRST_RATES_MONTH = pd.Period("2010-01", freq="M")
+
+
+def decode_month_header(value):
+    """Turn an Excel-mangled 'MM.YY' header back into a monthly period.
+
+    When the table was pasted, Excel converted headers such as '01.10'
+    (January 2010) into dates. For 2010-2012 it read them as day.month
+    of the current year (01.10 -> 2026-10-01); from 2013 on it read them
+    as month.year (01.13 -> 2013-01-01). Both cases are undone here.
+    """
+    if pd.isna(value):
+        return None
+    stamp = pd.Timestamp(value)
+    if stamp.year == 2026 and stamp.month in (10, 11, 12) and stamp.day <= 12:
+        return pd.Period(year=2000 + stamp.month, month=stamp.day, freq="M")
+    return pd.Period(year=stamp.year, month=stamp.month, freq="M")
+
+
+def parse_rate(value):
+    """Rates are numbers; '-' means not published."""
+    if pd.isna(value) or str(value).strip() in ("-", ""):
+        return float("nan")
+    return float(str(value).replace(",", "."))
+
+
+def build_deposit_rates(path=DEPOSIT_RATES_FILE):
+    """Return monthly household deposit rates in KZT and in FX, in percent."""
+    if not path.exists():
+        raise FileNotFoundError(f"Raw file not found: {path}")
+    raw = pd.read_excel(path, header=None)
+
+    labels = raw[0].fillna("").astype(str).str.strip()
+    if RATES_ROW_LABEL not in labels.values:
+        raise ValueError(f"Row '{RATES_ROW_LABEL}' not found in {path}.")
+    values = raw[labels == RATES_ROW_LABEL].iloc[0]
+    currency = raw.iloc[1]
+    header = raw.iloc[0]
+
+    rows = []
+    for col in range(1, raw.shape[1], 2):
+        if currency[col] != "KZT" or currency[col + 1] != "СКВ":
+            raise ValueError(f"Unexpected currency labels in column {col}.")
+        rows.append({
+            "period": decode_month_header(header[col]),
+            "rate_kzt": parse_rate(values[col]),
+            "rate_fx": parse_rate(values[col + 1]),
+        })
+    rates = pd.DataFrame(rows)
+
+    expected = pd.period_range(FIRST_RATES_MONTH, periods=len(rates), freq="M")
+    if list(rates["period"]) != list(expected):
+        raise ValueError("Month headers are not consecutive months from 2010-01.")
+    rates["rate_spread"] = rates["rate_kzt"] - rates["rate_fx"]
+    return rates
+
+
+# ---------------------------------------------------------------------------
 # Merge and save
 # ---------------------------------------------------------------------------
 
@@ -253,9 +323,10 @@ def add_fx_in_usd(monthly):
     return monthly
 
 
-def merge_monthly(deposits, rates):
-    """One row per month; keep only months present in both tables."""
+def merge_monthly(deposits, rates, deposit_rates):
+    """One row per month; keep only months present in all tables."""
     monthly = deposits.merge(rates, on="period", how="inner")
+    monthly = monthly.merge(deposit_rates, on="period", how="inner")
     return add_fx_in_usd(monthly)
 
 
@@ -267,19 +338,23 @@ def save(table, path):
 def main():
     deposits = build_deposits()
     rates = build_exchange_rate()
-    monthly = merge_monthly(deposits, rates)
+    deposit_rates = build_deposit_rates()
+    monthly = merge_monthly(deposits, rates, deposit_rates)
 
     save(deposits, OUT_DEPOSITS)
     save(rates, OUT_RATES)
+    save(deposit_rates, OUT_DEPOSIT_RATES)
     save(monthly, OUT_MONTHLY)
 
     first, last = monthly["period"].iloc[0], monthly["period"].iloc[-1]
     latest = monthly.iloc[-1]
     print(f"Deposits:      {len(deposits)} months -> {OUT_DEPOSITS}")
     print(f"Exchange rate: {len(rates)} months -> {OUT_RATES}")
+    print(f"Deposit rates: {len(deposit_rates)} months -> {OUT_DEPOSIT_RATES}")
     print(f"Merged:        {len(monthly)} months ({first} to {last}) -> {OUT_MONTHLY}")
     print(f"Latest ({last}): dollarization {latest['dollarization_pct']:.1f}%, "
-          f"USD/KZT average {latest['usd_kzt_avg']:.2f}")
+          f"USD/KZT average {latest['usd_kzt_avg']:.2f}, "
+          f"deposit rates KZT {latest['rate_kzt']:.1f}% / FX {latest['rate_fx']:.1f}%")
 
 
 if __name__ == "__main__":
