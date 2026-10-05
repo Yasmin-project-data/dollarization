@@ -1,0 +1,14 @@
+# Indicator card: Household Deposit Dollarization Index, Kazakhstan
+
+Team: Yasmin, Gulzat · Date: 2026-10-05 · Status: draft
+
+| Element | Specification |
+|---|---|
+| **Concept** | The share of household bank deposits in Kazakhstan held in foreign currency. It measures how far households protect their savings against the tenge, which weakens the transmission of NBK monetary policy and creates foreign-currency liquidity risk for banks. A bank treasury needs the number to plan its foreign-currency liquidity buffer. |
+| **Formula** | D_t = 100 × FX_t / (KZT_t + FX_t), where FX_t is the sum of household demand, conditional, term and savings deposits in foreign currency, and KZT_t is the same sum in national currency (million KZT, end of month t). The NBK "Total" equals KZT_t + FX_t; the code checks this every month (tolerance 5 million KZT). Not a composite index: no weights are involved. |
+| **Unit and scale** | Percent of total household deposits, 0–100. |
+| **Frequency and lag** | Monthly, end-of-month stocks. Published by the NBK around the 15th of the following month (about 2 weeks after the reference month). |
+| **Coverage** | Kazakhstan, household (individual) deposits in banks, including accounts of non-resident individuals. Data: 2010-01 to 2026-08 (200 months). Main model sample: 2016-01 onwards (after the move to a floating tenge in August 2015). |
+| **Source and vintage** | National Bank of Kazakhstan, "Household deposits in banks of Kazakhstan" (https://nationalbank.kz/ru/depositspopulation/vklady-naseleniya-v-bankah-kazahstana), XLSX export, retrieved 2026-10-04. Revisions: possible (December 2019 includes final turnovers, per NBK footnote); checked by re-downloading before submission. |
+| **Transformations** | Components summed; text numbers parsed; empty cells for savings deposits before their introduction set to 0. No deflation, seasonal adjustment or interpolation of the indicator itself. Alternative measure: dollarization at a constant exchange rate (foreign-currency deposits converted to USD at the end-of-month rate, then back to KZT at the January 2016 end-of-month rate), which removes the pure revaluation effect. |
+| **Known weaknesses** | (1) Revaluation: when the tenge weakens, FX deposits rise in KZT terms even if nobody buys foreign currency, so D_t rises mechanically. (2) Cash dollars held outside banks are not covered. (3) Includes non-resident individuals' accounts. (4) Households only; the NBK headline figure for all deposits (about 20% in 2026) differs. (5) Regulatory changes (cap on FX deposit rates, lower guarantee on FX deposits) shift the level and can create structural breaks. (6) FX deposits in USD terms moved within about 10–16 billion USD over 2014–2026 without a clear downward trend, so most of the fall in D_t reflects growth of tenge deposits, not sales of dollars. |
