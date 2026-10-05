@@ -14,12 +14,14 @@ Writes:
     data/processed/deposit_rates.csv   household deposit rates, monthly
     data/processed/cpi.csv             CPI index and inflation, monthly
     data/processed/oil.csv             Brent oil price, monthly
+    data/processed/metadata.json       provenance for the website (sources, dates)
     data/processed/monthly.csv         everything merged, one row per month
 
 Run from the project folder:
     python src/ingest.py
 """
 
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -37,6 +39,46 @@ OUT_RATES = OUT_DIR / "exchange_rate.csv"
 OUT_DEPOSIT_RATES = OUT_DIR / "deposit_rates.csv"
 OUT_CPI = OUT_DIR / "cpi.csv"
 OUT_OIL = OUT_DIR / "oil.csv"
+OUT_METADATA = OUT_DIR / "metadata.json"
+
+# Provenance shown on the website. Keep in line with data/raw/SOURCES.md.
+SOURCES = {
+    "deposits": {
+        "label": "Household deposits by currency",
+        "publisher": "National Bank of Kazakhstan",
+        "series": "Household deposits in banks of Kazakhstan (XLSX export)",
+        "url": "https://nationalbank.kz/ru/depositspopulation/vklady-naseleniya-v-bankah-kazahstana",
+        "retrieved": "2026-10-04",
+    },
+    "exchange_rate": {
+        "label": "USD/KZT official exchange rate",
+        "publisher": "National Bank of Kazakhstan",
+        "series": "Official daily rates, API get_rates.cfm",
+        "url": "https://nationalbank.kz/rss/get_rates.cfm",
+        "retrieved": "2026-10-04",
+    },
+    "deposit_rates": {
+        "label": "Household deposit interest rates",
+        "publisher": "National Bank of Kazakhstan",
+        "series": "Interest rates on deposits by maturity and currency",
+        "url": "https://nationalbank.kz/ru/interestratesofbanksonat/stavki-voznagrazhdeniya-bankov-po-privlechennym-depozitampo-srokam-i-vidam-valyut",
+        "retrieved": "2026-10-04",
+    },
+    "cpi": {
+        "label": "Consumer price index",
+        "publisher": "Bureau of National Statistics (Taldau)",
+        "series": "CPI, previous month = 100, code KSP 261601",
+        "url": "https://taldau.stat.gov.kz",
+        "retrieved": "2026-10-04",
+    },
+    "oil": {
+        "label": "Brent crude oil price",
+        "publisher": "IMF via FRED",
+        "series": "POILBREUSDM",
+        "url": "https://fred.stlouisfed.org/series/POILBREUSDM",
+        "retrieved": "2026-10-04",
+    },
+}
 OUT_MONTHLY = OUT_DIR / "monthly.csv"
 
 # A month needs at least this many published daily rates for its average
@@ -421,6 +463,20 @@ def merge_monthly(deposits, rates, deposit_rates, cpi, oil):
     return add_fx_in_usd(monthly)
 
 
+def build_metadata(tables):
+    """Sources plus the first and last month of every processed table.
+
+    No timestamp of the run is stored, so rebuilding gives identical files.
+    """
+    meta = {"sources": {}}
+    for key, table in tables.items():
+        entry = dict(SOURCES[key])
+        entry["first_period"] = str(table["period"].iloc[0])
+        entry["last_period"] = str(table["period"].iloc[-1])
+        meta["sources"][key] = entry
+    return meta
+
+
 def save(table, path):
     path.parent.mkdir(parents=True, exist_ok=True)
     table.to_csv(path, index=False, float_format="%.4f")
@@ -440,6 +496,13 @@ def main():
     save(cpi, OUT_CPI)
     save(oil, OUT_OIL)
     save(monthly, OUT_MONTHLY)
+
+    metadata = build_metadata({
+        "deposits": deposits, "exchange_rate": rates,
+        "deposit_rates": deposit_rates, "cpi": cpi, "oil": oil,
+    })
+    OUT_METADATA.write_text(json.dumps(metadata, indent=2, ensure_ascii=False),
+                            encoding="utf-8")
 
     first, last = monthly["period"].iloc[0], monthly["period"].iloc[-1]
     latest = monthly.iloc[-1]

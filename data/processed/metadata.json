@@ -1,0 +1,49 @@
+{
+  "sources": {
+    "deposits": {
+      "label": "Household deposits by currency",
+      "publisher": "National Bank of Kazakhstan",
+      "series": "Household deposits in banks of Kazakhstan (XLSX export)",
+      "url": "https://nationalbank.kz/ru/depositspopulation/vklady-naseleniya-v-bankah-kazahstana",
+      "retrieved": "2026-10-04",
+      "first_period": "2010-01",
+      "last_period": "2026-08"
+    },
+    "exchange_rate": {
+      "label": "USD/KZT official exchange rate",
+      "publisher": "National Bank of Kazakhstan",
+      "series": "Official daily rates, API get_rates.cfm",
+      "url": "https://nationalbank.kz/rss/get_rates.cfm",
+      "retrieved": "2026-10-04",
+      "first_period": "2010-01",
+      "last_period": "2026-09"
+    },
+    "deposit_rates": {
+      "label": "Household deposit interest rates",
+      "publisher": "National Bank of Kazakhstan",
+      "series": "Interest rates on deposits by maturity and currency",
+      "url": "https://nationalbank.kz/ru/interestratesofbanksonat/stavki-voznagrazhdeniya-bankov-po-privlechennym-depozitampo-srokam-i-vidam-valyut",
+      "retrieved": "2026-10-04",
+      "first_period": "2010-01",
+      "last_period": "2026-08"
+    },
+    "cpi": {
+      "label": "Consumer price index",
+      "publisher": "Bureau of National Statistics (Taldau)",
+      "series": "CPI, previous month = 100, code KSP 261601",
+      "url": "https://taldau.stat.gov.kz",
+      "retrieved": "2026-10-04",
+      "first_period": "2011-01",
+      "last_period": "2026-09"
+    },
+    "oil": {
+      "label": "Brent crude oil price",
+      "publisher": "IMF via FRED",
+      "series": "POILBREUSDM",
+      "url": "https://fred.stlouisfed.org/series/POILBREUSDM",
+      "retrieved": "2026-10-04",
+      "first_period": "1992-01",
+      "last_period": "2026-07"
+    }
+  }
+}
