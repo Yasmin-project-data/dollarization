@@ -1,1 +1,2 @@
 # Kazakhstan Deposit Dollarization Index
+ 
