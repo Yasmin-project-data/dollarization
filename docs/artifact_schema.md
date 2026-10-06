@@ -82,13 +82,23 @@ All numbers below are **placeholders that show the structure only**.
 }
 ```
 
+## Differences from the placeholder above (as written by `src/model.py`)
+- `model.sample` also has `n_months` (months in the estimation sample); `n_obs` is the number of equation observations after the lags.
+- `model.specifications_estimated` is the number of lag combinations compared by AIC.
+- `latest.contributions` has the keys of the four factors plus `own_dynamics` (lagged changes of the indicator), `error_correction`, `constant` and `residual`. Each term is measured against its average in the estimation sample, so `constant` is the average monthly change in that sample and the parts add up to `latest.change` exactly.
+- `scenario.base_level` is the latest observed level; the scenario is next month's level with all drivers unchanged: `level = base_level + x · values`. The controls change a driver's change next month by `s`.
+- `diagnostics.bounds_test` also has the 5% critical bounds; `diagnostics` also has `breusch_godfrey_p`, `breusch_pagan_p`, `jarque_bera_p`, `cusum_p`, `cusum_stable`, `max_vif`, `chow_2020_03_p`, `chow_2022_03_p`.
+- `benchmark` also has `n_holdout`.
+
 ## How the app uses it
 - **Driver panel:** `latest.contributions` (percentage points of the latest monthly change, signed).
 - **Scenario control:** for a slider value `s`, the regressor vector is
   `x = base_regressors + s × regressor_effect` (by coefficient name).
-  Prediction = `x · values`; standard error = `sqrt(x' · covariance · x)`;
-  95% band = prediction ± 1.96 × standard error. Plain matrix arithmetic on
-  numbers read from the file, no estimation.
+  Change = `x · values`; level = `base_level` + change; standard error of the
+  change = `sqrt(x' · covariance · x)`; 95% band = level ± 1.96 × standard
+  error. Plain matrix arithmetic on numbers read from the file, no estimation.
+  The band reflects uncertainty about the coefficients only; `residual_std`
+  is the typical size of a monthly surprise on top of it.
 - **Provenance panel:** `model.estimated_at`, `model.sample`, plus `data/processed/metadata.json`.
 - **Honesty panel:** `benchmark.winner` and the RMSE ratio are shown as they are, even if the model loses.
 - If the file is missing or unreadable, the app shows a plain-language message and keeps the data panels working.

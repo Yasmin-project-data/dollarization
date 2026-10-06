@@ -11,6 +11,7 @@ Run from the project folder:
 """
 
 import itertools
+import json
 import warnings
 from pathlib import Path
 
@@ -418,6 +419,189 @@ def forecast_accuracy(forecast):
     }
 
 
+# ---------------------------------------------------------------------------
+# Latest-month contributions, scenario base and the model artifact
+# ---------------------------------------------------------------------------
+# docs/artifact_schema.md is the contract with src/app.py. Everything the
+# website shows about the model is written here once and only read there.
+
+ARTIFACT_FILE = Path("model/artifact.json")
+CONTRIBUTION_GROUPS = ("own_dynamics", "error_correction", "constant")
+
+FACTOR_LABELS = {
+    "depreciation_1m": ("Tenge depreciation, 1 month", "%", "+"),
+    "rate_spread": ("KZT minus FX deposit rate", "pp", "-"),
+    "inflation_yoy_pct": ("Inflation, year on year", "%", "+"),
+    "log_brent_lag1": ("Brent oil price (log), lagged one month", "log USD", "-"),
+}
+
+# Scenario controls: a change of the driver in the next month, relative to
+# "no change". Only the contemporaneous difference term reacts to it.
+SCENARIO_CONTROLS = [
+    {"factor": "depreciation_1m", "label": "Tenge depreciation next month, %",
+     "min": -3.0, "max": 10.0, "step": 0.5,
+     "regressor_effect": {"D.depreciation_1m.L0": 1.0}},
+    {"factor": "rate_spread",
+     "label": "Change in KZT-FX deposit rate spread next month, pp",
+     "min": -5.0, "max": 5.0, "step": 0.5,
+     "regressor_effect": {"D.rate_spread.L0": 1.0}},
+]
+
+
+def term_group(name):
+    """Which contribution group a coefficient belongs to."""
+    if name == "const":
+        return "constant"
+    if name == f"{DEPENDENT}.L1":
+        return "error_correction"
+    if name.startswith(f"D.{DEPENDENT}."):
+        return "own_dynamics"
+    for factor in REGRESSORS:
+        if name.startswith(f"{factor}.") or name.startswith(f"D.{factor}."):
+            return factor
+    raise ValueError(f"Unknown coefficient name: {name}")
+
+
+def latest_contributions(sample, estimation, order, params):
+    """Split the latest monthly change into the contribution of each group.
+
+    The level terms of an error-correction model are large and offset each
+    other, so a raw coefficient x value says little. Each term is therefore
+    measured against its average in the estimation sample:
+        contribution = coefficient x (value this month - estimation mean).
+    "constant" then holds the average monthly change in the estimation
+    sample (the constant plus all coefficient x mean terms), and the
+    residual is the part the model does not explain. All parts add up to
+    the actual change exactly.
+    """
+    uecm = make_uecm(sample, order)
+    y_change, x, months = design(uecm)
+    x_mean = design(make_uecm(estimation, order))[1].mean(axis=0)
+    names = list(params.index)
+    deviations = x[-1] - x_mean
+    deviations[names.index("const")] = 0.0
+    terms = deviations * params.values
+    groups = {}
+    for name, term in zip(names, terms):
+        groups[term_group(name)] = groups.get(term_group(name), 0.0) + float(term)
+    average_change = float(x_mean @ params.values)
+    contributions = {g: groups.get(g, 0.0)
+                     for g in REGRESSORS + list(CONTRIBUTION_GROUPS)}
+    contributions["constant"] = average_change
+    contributions["residual"] = float(y_change[-1]) - float(terms.sum()) \
+        - average_change
+    return str(months[-1]), float(y_change[-1]), contributions
+
+
+def next_month_regressors(sample, order, names):
+    """Regressor vector for the month after the sample, assuming every driver
+    stays at its latest value (so its change next month is zero).
+
+    Coefficient names are `const`, `<var>.L1` (level), `D.<var>.L<k>`
+    (change k months back). The dependent variable is only needed at lags >= 1.
+    """
+    next_month = sample.index[-1] + 1
+    extended = {}
+    for variable in [DEPENDENT] + REGRESSORS:
+        series = sample[variable].copy()
+        series.loc[next_month] = np.nan if variable == DEPENDENT else series.iloc[-1]
+        extended[variable] = series
+
+    row = []
+    for name in names:
+        if name == "const":
+            row.append(1.0)
+        elif name.startswith("D."):
+            variable, lag = name[2:].rsplit(".L", 1)
+            row.append(float(extended[variable].diff().iloc[-1 - int(lag)]))
+        else:
+            variable, lag = name.rsplit(".L", 1)
+            row.append(float(extended[variable].iloc[-1 - int(lag)]))
+    return row
+
+
+def build_artifact(sample, estimation, holdout, order, n_specs, result, uecm,
+                   unit_roots, bounds, diagnostics, accuracy):
+    """Collect everything the website needs into one JSON-ready dictionary."""
+    params = result.params
+    names = list(params.index)
+    period, change, contributions = latest_contributions(
+        sample, sample.loc[estimation.index], order, params)
+
+    last_level = float(sample[DEPENDENT].iloc[-1])
+    base_x = next_month_regressors(sample, order, names)
+    base_change = float(np.dot(base_x, params.values))
+
+    return {
+        "model": {
+            "name": "ARDL / error-correction model of household deposit "
+                    "dollarization",
+            "type": "ECM",
+            "estimated_at": pd.Timestamp.now(tz="Asia/Almaty").isoformat(
+                timespec="seconds"),
+            "dependent": {"name": DEPENDENT, "unit": "percent"},
+            "sample": {
+                "estimation_start": str(estimation.index[0]),
+                "estimation_end": str(estimation.index[-1]),
+                "n_months": int(len(estimation)),
+                "n_obs": int(len(design(uecm)[0])),
+                "holdout_start": str(holdout.index[0]),
+                "holdout_end": str(holdout.index[-1]),
+            },
+            "lags": dict(zip([DEPENDENT] + REGRESSORS, [int(o) for o in order])),
+            "specifications_estimated": int(n_specs),
+        },
+        "factors": [
+            {"name": name, "label": FACTOR_LABELS[name][0],
+             "unit": FACTOR_LABELS[name][1],
+             "expected_sign": FACTOR_LABELS[name][2]}
+            for name in REGRESSORS],
+        "coefficients": {
+            "names": names,
+            "values": [float(v) for v in params.values],
+            "std_errors": [float(v) for v in result.bse.values],
+            "p_values": [float(v) for v in result.pvalues.values],
+            "covariance": result.cov_params().values.tolist(),
+            "se_type": f"HAC (Newey-West, {hac_lags(len(estimation))} lags)",
+        },
+        "residual_std": float(np.sqrt(result.scale)),
+        "long_run": {k: float(v)
+                     for k, v in long_run_coefficients(result).items()},
+        "latest": {
+            "period": period,
+            "value": last_level,
+            "change": change,
+            "contributions": contributions,
+        },
+        "scenario": {
+            "base_period": str(sample.index[-1] + 1),
+            "base_level": last_level,
+            "base_regressors": base_x,
+            "base_prediction": last_level + base_change,
+            "controls": SCENARIO_CONTROLS,
+        },
+        "diagnostics": {
+            "unit_roots": {
+                row.series: {"adf_p": row.level_adf_p, "kpss_p": row.level_kpss_p,
+                             "order": row.order}
+                for row in unit_roots.itertuples()},
+            "bounds_test": {
+                "f_stat": bounds["f_stat"],
+                "crit_5pct_lower": bounds["crit_5pct_lower"],
+                "crit_5pct_upper": bounds["crit_5pct_upper"],
+                "conclusion": bounds["conclusion"]},
+            **diagnostics,
+        },
+        "benchmark": accuracy,
+    }
+
+
+def write_artifact(artifact, path=ARTIFACT_FILE):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(artifact, indent=2, ensure_ascii=False),
+                    encoding="utf-8")
+
+
 def main():
     table = build_model_table(read_monthly())
     estimation, holdout = split_sample(table)
@@ -463,6 +647,11 @@ def main():
           f"{accuracy['rmse_benchmark']:.3f}, ratio "
           f"{accuracy['rmse_ratio']:.3f}; MAE ratio "
           f"{accuracy['mae_ratio']:.3f} -> {accuracy['winner']} wins")
+    artifact = build_artifact(sample, estimation, holdout, order, n_specs,
+                              result, uecm, unit_roots, bounds, diagnostics,
+                              accuracy)
+    write_artifact(artifact)
+    print(f"Artifact:   -> {ARTIFACT_FILE}")
     print(f"Bounds test: F = {bounds['f_stat']:.2f}, 5% bounds "
           f"[{bounds['crit_5pct_lower']:.2f}, {bounds['crit_5pct_upper']:.2f}] "
           f"-> {bounds['conclusion']}")

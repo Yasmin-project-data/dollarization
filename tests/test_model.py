@@ -182,6 +182,63 @@ def test_forecast_accuracy_ratio_and_winner():
     assert model.forecast_accuracy(worse)["winner"] == "benchmark"
 
 
+def test_latest_contributions_add_up_to_the_actual_change():
+    data = make_cointegrated()
+    order = (2, 1, 1, 1, 1)
+    _, result = model.fit_uecm(data, order)
+    period, change, contributions = model.latest_contributions(
+        data, data.iloc[:100], order, result.params)
+    assert period == str(data.index[-1])
+    assert change == pytest.approx(
+        data[model.DEPENDENT].iloc[-1] - data[model.DEPENDENT].iloc[-2])
+    assert sum(contributions.values()) == pytest.approx(change)
+    assert set(contributions) == set(model.REGRESSORS) | {
+        "own_dynamics", "error_correction", "constant", "residual"}
+
+
+def test_next_month_regressors_hold_drivers_flat():
+    data = make_cointegrated()
+    order = (2, 1, 1, 1, 1)
+    _, result = model.fit_uecm(data, order)
+    names = list(result.params.index)
+    row = dict(zip(names, model.next_month_regressors(data, order, names)))
+    assert row["const"] == 1.0
+    assert row["D.rate_spread.L0"] == 0.0           # driver flat next month
+    assert row["rate_spread.L1"] == data["rate_spread"].iloc[-1]
+    assert row["dollarization_pct.L1"] == data[model.DEPENDENT].iloc[-1]
+    assert row["D.dollarization_pct.L1"] == pytest.approx(
+        data[model.DEPENDENT].diff().iloc[-1])
+
+
+def test_term_group_covers_every_coefficient_name():
+    assert model.term_group("const") == "constant"
+    assert model.term_group("dollarization_pct.L1") == "error_correction"
+    assert model.term_group("D.dollarization_pct.L2") == "own_dynamics"
+    assert model.term_group("D.rate_spread.L0") == "rate_spread"
+    assert model.term_group("log_brent_lag1.L1") == "log_brent_lag1"
+    with pytest.raises(ValueError):
+        model.term_group("mystery.L1")
+
+
+def test_committed_artifact_is_consistent():
+    """The file the website reads: shapes agree, parts add up."""
+    import json
+    artifact = json.loads(model.ARTIFACT_FILE.read_text(encoding="utf-8"))
+    coefficients = artifact["coefficients"]
+    k = len(coefficients["names"])
+    assert len(coefficients["values"]) == k
+    assert len(coefficients["std_errors"]) == k
+    assert len(coefficients["covariance"]) == k
+    assert all(len(row) == k for row in coefficients["covariance"])
+    assert len(artifact["scenario"]["base_regressors"]) == k
+    latest = artifact["latest"]
+    assert sum(latest["contributions"].values()) == pytest.approx(latest["change"])
+    # standard errors are the square roots of the covariance diagonal
+    diagonal = np.sqrt(np.diag(np.array(coefficients["covariance"])))
+    assert diagonal == pytest.approx(coefficients["std_errors"])
+    assert artifact["benchmark"]["winner"] in ("model", "benchmark")
+
+
 def test_select_order_counts_every_specification():
     data = make_cointegrated()
     order, n_specs, table = model.select_order(data, max_lag=2)
