@@ -87,6 +87,45 @@ def test_integration_order_of_synthetic_series():
     assert model.integration_order(walk)[-1] == "I(1)"
 
 
+def test_hac_lags_rule_of_thumb():
+    assert model.hac_lags(99) == 3
+    assert model.hac_lags(102) == 4
+
+
+def test_bounds_conclusion_three_outcomes():
+    assert model.bounds_conclusion(lower_p=0.001, upper_p=0.02) == "cointegration"
+    assert model.bounds_conclusion(lower_p=0.01, upper_p=0.20) == "inconclusive"
+    assert model.bounds_conclusion(lower_p=0.30, upper_p=0.60) == "no cointegration"
+
+
+def make_cointegrated(n=150):
+    """y follows the regressors in the long run; fixed seed."""
+    rng = np.random.default_rng(7)
+    index = pd.period_range("2016-01", periods=n, freq="M")
+    data = pd.DataFrame(
+        {name: rng.normal(size=n).cumsum() for name in model.REGRESSORS},
+        index=index)
+    data[model.DEPENDENT] = data["rate_spread"] + rng.normal(scale=0.5, size=n)
+    return data
+
+
+def test_estimation_recovers_long_run_relationship():
+    data = make_cointegrated()
+    order = (1, 1, 1, 1, 1)
+    uecm, result = model.fit_uecm(data, order)
+    assert model.run_bounds_test(uecm)["conclusion"] == "cointegration"
+    assert model.long_run_coefficients(result)["rate_spread"] == pytest.approx(
+        1.0, abs=0.2)
+
+
+def test_select_order_counts_every_specification():
+    data = make_cointegrated()
+    order, n_specs, table = model.select_order(data, max_lag=2)
+    assert n_specs == 2 ** (1 + len(model.REGRESSORS))
+    assert len(order) == 1 + len(model.REGRESSORS)
+    assert table["aic"].is_monotonic_increasing
+
+
 def test_preregistered_sample_on_real_data():
     """docs/preregistration.md: about 128 months, hold-out from 2024-07."""
     table = model.build_model_table(model.read_monthly())

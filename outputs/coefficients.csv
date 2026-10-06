@@ -1,0 +1,15 @@
+name,coef,std_err,p_value
+const,-1.901208,2.137684,0.376311
+dollarization_pct.L1,-0.030660,0.014029,0.031606
+depreciation_1m.L1,0.207768,0.078431,0.009622
+rate_spread.L1,-0.134350,0.110188,0.226111
+inflation_yoy_pct.L1,-0.015991,0.032078,0.619413
+log_brent_lag1.L1,0.948494,0.540158,0.082698
+D.dollarization_pct.L1,-0.180647,0.154101,0.244367
+D.dollarization_pct.L2,-0.117133,0.132065,0.377620
+D.depreciation_1m.L0,0.188574,0.094757,0.049795
+D.rate_spread.L0,-0.057925,0.337704,0.864218
+D.inflation_yoy_pct.L0,-0.305998,0.205206,0.139618
+D.inflation_yoy_pct.L1,0.266959,0.146870,0.072640
+D.log_brent_lag1.L0,1.066269,1.304923,0.416148
+D.log_brent_lag1.L1,-2.224700,1.746012,0.206079

@@ -1,0 +1,15 @@
+# Deviations from the pre-registration
+
+Each entry: what changed, why, and what the pre-registered specification produced. These become the three-line list in Section 3 of the technical note.
+
+## 1. Every factor has at least one lag (error-correction form)
+
+- **What changed:** pre-registration says lags 0–3 chosen by AIC. The model is estimated in error-correction form, which contains the lagged level of every variable, so each factor must have at least one lag. AIC is searched over orders 1–3 for the dependent variable and for each factor (243 specifications).
+- **Why:** without a lagged level there is no long-run term and the bounds test cannot be run.
+- **What the pre-registered rule produced:** an unrestricted AIC search over lags 0–3 (`ardl_select_order`, on the estimation sample only) picked the dependent variable at lags 1–2 and the factors at lag 0 only, which has no long-run relationship to test. This exploratory search is not part of the committed code.
+
+## 2. Brent enters with a one-month shift
+
+- **What changed:** the fourth factor is `log_brent_lag1`, the log Brent price shifted by one month, used with the same lag search as the other factors.
+- **Why:** pre-registration allows Brent only at lags 1–3 because oil is published with a delay. Shifting once keeps the August 2026 observation usable (128 months, as planned).
+- **What the pre-registered specification produced:** the same model, written with a shifted regressor.

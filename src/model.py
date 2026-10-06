@@ -10,12 +10,14 @@ Run from the project folder:
     python src/model.py
 """
 
+import itertools
 import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from statsmodels.tools.sm_exceptions import InterpolationWarning
+from statsmodels.tsa.ardl import UECM
 from statsmodels.tsa.stattools import adfuller, kpss, zivot_andrews
 
 DATA_FILE = Path("data/processed/monthly.csv")
@@ -177,6 +179,117 @@ def unit_root_table(estimation):
     return pd.DataFrame(rows)
 
 
+# ---------------------------------------------------------------------------
+# Estimation: ARDL in error-correction form (UECM) and the bounds test
+# ---------------------------------------------------------------------------
+# Pre-registration, section 3. The unrestricted error-correction model is the
+# ARDL rewritten in levels and differences, so the bounds test and the
+# long-run coefficients come from the same estimated equation. Brent enters
+# with a one-month lag (it is published late), so its column is shifted once.
+
+REGRESSORS = ["depreciation_1m", "rate_spread", "inflation_yoy_pct",
+              "log_brent_lag1"]
+MAX_LAG = 3
+BOUNDS_CASE = 3          # unrestricted constant, no trend
+OUT_COEFFICIENTS = OUT_DIR / "coefficients.csv"
+OUT_BOUNDS = OUT_DIR / "bounds_test.csv"
+
+
+def add_regressors(table):
+    """Add the lagged Brent column used as the fourth regressor."""
+    table = table.copy()
+    table["log_brent_lag1"] = table["log_brent"].shift(1)
+    return table
+
+
+def hac_lags(n_obs):
+    """Newey-West rule of thumb for the number of autocovariance lags."""
+    return int(4 * (n_obs / 100) ** (2 / 9))
+
+
+def make_uecm(data, order):
+    """Build (not fit) the error-correction model for a given order.
+
+    `order` is (lags of the dependent variable, lags of each regressor).
+    """
+    lags = dict(zip(REGRESSORS, order[1:]))
+    return UECM(data[DEPENDENT], order[0], data[REGRESSORS], lags, trend="c")
+
+
+def select_order(estimation, max_lag=MAX_LAG):
+    """Choose the lag orders by AIC over every combination up to `max_lag`.
+
+    Every regressor needs at least one lag, because the error-correction form
+    contains the lagged level of each variable. Returns the best order, the
+    number of specifications estimated and the full AIC table.
+    """
+    rows = []
+    lag_range = range(1, max_lag + 1)
+    for order in itertools.product(lag_range, repeat=1 + len(REGRESSORS)):
+        try:
+            aic = make_uecm(estimation, order).fit().aic
+        except ValueError:
+            continue
+        rows.append({"order": order, "aic": aic})
+    table = pd.DataFrame(rows).sort_values("aic").reset_index(drop=True)
+    return table["order"].iloc[0], len(table), table
+
+
+def fit_uecm(estimation, order):
+    """Fit the chosen model; standard errors are HAC (Newey-West)."""
+    uecm = make_uecm(estimation, order)
+    result = uecm.fit(cov_type="HAC",
+                      cov_kwds={"maxlags": hac_lags(len(estimation))})
+    return uecm, result
+
+
+def run_bounds_test(uecm):
+    """Pesaran-Shin-Smith bounds F-test for a long-run relationship.
+
+    The null is "no long-run relationship". The statistic is compared with
+    the lower bound (all variables I(0)) and the upper bound (all I(1)).
+    """
+    test = uecm.fit().bounds_test(case=BOUNDS_CASE)
+    crit = test.critical_values.loc[95.0]
+    return {
+        "f_stat": float(test.statistic),
+        "lower_p": float(test.pvalue["lower"]),
+        "upper_p": float(test.pvalue["upper"]),
+        "crit_5pct_lower": float(crit["lower"]),
+        "crit_5pct_upper": float(crit["upper"]),
+        "conclusion": bounds_conclusion(
+            test.pvalue["lower"], test.pvalue["upper"]),
+    }
+
+
+def bounds_conclusion(lower_p, upper_p, level=SIGNIFICANCE):
+    """Cointegration if even the I(1) bound is passed; none if the I(0) bound is
+    not passed; otherwise inconclusive."""
+    if upper_p < level:
+        return "cointegration"
+    if lower_p >= level:
+        return "no cointegration"
+    return "inconclusive"
+
+
+def long_run_coefficients(result):
+    """Long-run effect of each regressor: -theta / rho, with rho the
+    coefficient on the lagged dependent level (the speed of adjustment)."""
+    params = result.params
+    rho = params[f"{DEPENDENT}.L1"]
+    return {name: -params[f"{name}.L1"] / rho for name in REGRESSORS}
+
+
+def coefficient_table(result):
+    """Names, estimates, HAC standard errors and p-values."""
+    return pd.DataFrame({
+        "name": result.params.index,
+        "coef": result.params.values,
+        "std_err": result.bse.values,
+        "p_value": result.pvalues.values,
+    })
+
+
 def main():
     table = build_model_table(read_monthly())
     estimation, holdout = split_sample(table)
@@ -194,6 +307,21 @@ def main():
     print(unit_roots[["series", "level_adf_p", "level_kpss_p",
                       "level_verdict", "diff_verdict", "order"]]
           .to_string(index=False))
+
+    full = add_regressors(table)
+    est = full.loc[estimation.index]
+    order, n_specs, _ = select_order(est)
+    uecm, result = fit_uecm(est, order)
+    bounds = run_bounds_test(uecm)
+    coefficients = coefficient_table(result)
+    coefficients.to_csv(OUT_COEFFICIENTS, index=False, float_format="%.6f")
+    pd.DataFrame([bounds]).to_csv(OUT_BOUNDS, index=False, float_format="%.6f")
+    print(f"Order {order} chosen by AIC among {n_specs} specifications")
+    print(coefficients.to_string(index=False))
+    print(f"Long run: { {k: round(v, 3) for k, v in long_run_coefficients(result).items()} }")
+    print(f"Bounds test: F = {bounds['f_stat']:.2f}, 5% bounds "
+          f"[{bounds['crit_5pct_lower']:.2f}, {bounds['crit_5pct_upper']:.2f}] "
+          f"-> {bounds['conclusion']}")
 
 
 if __name__ == "__main__":
