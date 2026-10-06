@@ -151,6 +151,37 @@ def test_diagnostics_return_every_preregistered_test():
     assert diagnostics["max_vif"] >= 1.0
 
 
+def test_holdout_forecast_reproduces_fitted_values_in_sample():
+    """Applied to months the model was estimated on, the forecast function
+    must return exactly the fitted values: this checks the alignment."""
+    data = make_cointegrated()
+    order = (1, 1, 1, 1, 1)
+    _, result = model.fit_uecm(data, order)
+    tail = data.index[-20:]
+    forecast = model.holdout_forecast(data, order, result.params.values, tail)
+    fitted_change = result.fittedvalues.loc[tail] if hasattr(
+        result.fittedvalues, "loc") else result.fittedvalues[-20:]
+    expected = data[model.DEPENDENT].shift(1).loc[tail].values + \
+        np.asarray(fitted_change)
+    assert forecast["model"].values == pytest.approx(expected)
+    assert forecast["benchmark"].values == pytest.approx(
+        data[model.DEPENDENT].shift(1).loc[tail].values)
+
+
+def test_forecast_accuracy_ratio_and_winner():
+    forecast = pd.DataFrame({
+        "actual": [10.0, 11.0, 12.0],
+        "model": [10.0, 11.0, 12.5],
+        "benchmark": [9.0, 10.0, 11.0],
+    })
+    accuracy = model.forecast_accuracy(forecast)
+    assert accuracy["rmse_benchmark"] == pytest.approx(1.0)
+    assert accuracy["rmse_model"] == pytest.approx(np.sqrt(0.25 / 3))
+    assert accuracy["winner"] == "model"
+    worse = forecast.assign(model=[0.0, 0.0, 0.0])
+    assert model.forecast_accuracy(worse)["winner"] == "benchmark"
+
+
 def test_select_order_counts_every_specification():
     data = make_cointegrated()
     order, n_specs, table = model.select_order(data, max_lag=2)

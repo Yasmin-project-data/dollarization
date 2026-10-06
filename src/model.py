@@ -366,6 +366,58 @@ def run_diagnostics(uecm):
     return diagnostics
 
 
+# ---------------------------------------------------------------------------
+# Out-of-sample evaluation (pre-registration, section 4)
+# ---------------------------------------------------------------------------
+# The coefficients come from the estimation sample only. For each hold-out
+# month the model predicts the change in dollarization from last month's
+# observed value and this month's factors (a nowcast), and the benchmark is
+# the random walk: no change from last month.
+
+OUT_HOLDOUT = OUT_DIR / "holdout_forecast.csv"
+
+
+def holdout_forecast(full, order, params, holdout_index):
+    """One-step-ahead forecasts for the hold-out months with fixed coefficients.
+
+    `full` holds the estimation and hold-out months. The equation is rebuilt
+    on all of them with the same order, so its rows line up with `params`;
+    the parameters are never re-estimated.
+    """
+    uecm = make_uecm(full, order)
+    y_change, x, months = design(uecm)
+    keep = np.asarray(months.isin(holdout_index))
+    predicted_change = x[keep] @ np.asarray(params)
+    last_month = full[DEPENDENT].shift(1).loc[months[keep]].values
+    actual = full[DEPENDENT].loc[months[keep]].values
+    return pd.DataFrame({
+        "period": months[keep].astype(str),
+        "actual": actual,
+        "model": last_month + predicted_change,
+        "benchmark": last_month,
+    })
+
+
+def forecast_accuracy(forecast):
+    """RMSE and MAE of the model and the benchmark, and their ratios."""
+    model_error = forecast["actual"] - forecast["model"]
+    bench_error = forecast["actual"] - forecast["benchmark"]
+    rmse_model = float(np.sqrt((model_error ** 2).mean()))
+    rmse_bench = float(np.sqrt((bench_error ** 2).mean()))
+    mae_model = float(model_error.abs().mean())
+    mae_bench = float(bench_error.abs().mean())
+    ratio = rmse_model / rmse_bench
+    return {
+        "name": "Random walk",
+        "rmse_model": rmse_model, "rmse_benchmark": rmse_bench,
+        "rmse_ratio": ratio,
+        "mae_model": mae_model, "mae_benchmark": mae_bench,
+        "mae_ratio": mae_model / mae_bench,
+        "n_holdout": int(len(forecast)),
+        "winner": "model" if ratio < 1 else "benchmark",
+    }
+
+
 def main():
     table = build_model_table(read_monthly())
     estimation, holdout = split_sample(table)
@@ -401,6 +453,16 @@ def main():
     print("Diagnostics: " + ", ".join(
         f"{k}={v:.3f}" if isinstance(v, float) else f"{k}={v}"
         for k, v in diagnostics.items()))
+    sample = full.loc[estimation.index[0]:holdout.index[-1]]
+    forecast = holdout_forecast(sample, order, result.params.values,
+                                holdout.index)
+    forecast.to_csv(OUT_HOLDOUT, index=False, float_format="%.4f")
+    accuracy = forecast_accuracy(forecast)
+    print(f"Hold-out ({accuracy['n_holdout']} months): RMSE model "
+          f"{accuracy['rmse_model']:.3f} vs random walk "
+          f"{accuracy['rmse_benchmark']:.3f}, ratio "
+          f"{accuracy['rmse_ratio']:.3f}; MAE ratio "
+          f"{accuracy['mae_ratio']:.3f} -> {accuracy['winner']} wins")
     print(f"Bounds test: F = {bounds['f_stat']:.2f}, 5% bounds "
           f"[{bounds['crit_5pct_lower']:.2f}, {bounds['crit_5pct_upper']:.2f}] "
           f"-> {bounds['conclusion']}")
