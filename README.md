@@ -9,10 +9,12 @@ Indicator definition: `docs/indicator_card.md`. Driver model, fixed before estim
 | Layer | Entry point | Status |
 |---|---|---|
 | Data | `src/ingest.py` | Done, covered by `tests/test_ingest.py` |
-| Model | `src/model.py` | In progress: `model/artifact.json` does not exist yet |
-| Website | `src/app.py` | Headline, history, sources and limits work; driver panel and scenario control wait for the model file |
+| Model | `src/model.py` | Main specification done: unit roots, error-correction model, bounds test, diagnostics, hold-out evaluation, `model/artifact.json`. Robustness checks not yet done |
+| Website | `src/app.py` | Done: headline, history, driver panel, scenario control, sources, limits. Covered by `tests/test_app.py` |
 
-Until the model is built the website shows a yellow notice instead of the driver panel. This is expected.
+Main result so far: on the 26 months held out from estimation, the model does **not** beat the random-walk benchmark (RMSE ratio above 1). This is reported on the website and in `model/artifact.json`. Deviations from the pre-registration are in `docs/deviations.md`.
+
+If `model/artifact.json` is missing or unreadable, the website shows a notice instead of the driver panel and scenario control, and the data panels keep working.
 
 ## Install
 
@@ -57,7 +59,7 @@ These download the daily USD/KZT rate (National Bank of Kazakhstan API) and the 
 python src/model.py
 ```
 
-Writes `model/artifact.json`. The website only reads this file and never estimates anything. Not available yet.
+Estimates the model on 2016-01 to 2024-06, evaluates it on the held-out months, and writes `model/artifact.json` and the tables in `outputs/`. The website only reads this file and never estimates anything. Takes under a minute.
 
 ## Run the tests
 
