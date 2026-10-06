@@ -1,0 +1,6 @@
+series,level_adf_p,level_kpss_p,level_verdict,level_za_p,level_za_break,diff_adf_p,diff_kpss_p,diff_verdict,order
+dollarization_pct,0.0048,0.0100,inconclusive,0.0605,2017-10,0.0000,0.0302,inconclusive,unclear
+depreciation_1m,0.0000,0.1000,stationary,0.0000,2017-04,0.0000,0.0417,inconclusive,I(0)
+rate_spread,0.5028,0.0100,unit root,0.0000,2022-02,0.0000,0.1000,stationary,I(1)
+inflation_yoy_pct,0.4232,0.0725,inconclusive,0.4737,2022-02,0.1262,0.1000,inconclusive,unclear
+log_brent,0.2284,0.0100,unit root,0.7988,2021-01,0.0000,0.1000,stationary,I(1)

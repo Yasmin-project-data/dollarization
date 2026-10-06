@@ -71,6 +71,22 @@ def test_split_starts_at_the_sample_start():
     assert estimation.index[0] == model.SAMPLE_START
 
 
+def test_classify_stationarity_combines_opposite_nulls():
+    assert model.classify_stationarity(adf_p=0.001, kpss_p=0.50) == "stationary"
+    assert model.classify_stationarity(adf_p=0.60, kpss_p=0.01) == "unit root"
+    assert model.classify_stationarity(adf_p=0.001, kpss_p=0.01) == "inconclusive"
+    assert model.classify_stationarity(adf_p=0.60, kpss_p=0.50) == "inconclusive"
+
+
+def test_integration_order_of_synthetic_series():
+    rng = np.random.default_rng(42)  # fixed seed
+    index = pd.period_range("2016-01", periods=200, freq="M")
+    noise = pd.Series(rng.normal(size=200), index=index)
+    walk = noise.cumsum()
+    assert model.integration_order(noise)[-1] == "I(0)"
+    assert model.integration_order(walk)[-1] == "I(1)"
+
+
 def test_preregistered_sample_on_real_data():
     """docs/preregistration.md: about 128 months, hold-out from 2024-07."""
     table = model.build_model_table(model.read_monthly())

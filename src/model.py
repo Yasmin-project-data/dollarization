@@ -10,10 +10,13 @@ Run from the project folder:
     python src/model.py
 """
 
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from statsmodels.tools.sm_exceptions import InterpolationWarning
+from statsmodels.tsa.stattools import adfuller, kpss, zivot_andrews
 
 DATA_FILE = Path("data/processed/monthly.csv")
 
@@ -86,6 +89,94 @@ def split_sample(table, start=SAMPLE_START, holdout_share=HOLDOUT_SHARE):
     return estimation, holdout
 
 
+# ---------------------------------------------------------------------------
+# Integration: unit-root tests (pre-registration, section 3)
+# ---------------------------------------------------------------------------
+# ADF has the null "unit root", KPSS has the null "stationary": two tests with
+# opposite nulls. Zivot-Andrews allows one break in the level, because the
+# sample spans 2020 and 2022. All tests use the estimation sample only.
+
+SIGNIFICANCE = 0.05
+OUT_DIR = Path("outputs")
+OUT_UNIT_ROOTS = OUT_DIR / "unit_roots.csv"
+
+
+def run_unit_root_tests(series):
+    """ADF (lags by AIC), KPSS (automatic bandwidth) and Zivot-Andrews p-values.
+
+    All three use a constant and no trend. Returns the three p-values and the
+    break month that Zivot-Andrews picks.
+    """
+    series = series.dropna()
+    adf_p = adfuller(series, regression="c", autolag="AIC",
+                     result_object=False)[1]
+    with warnings.catch_warnings():
+        # KPSS p-values are interpolated from a table and clipped at 0.01/0.10
+        warnings.simplefilter("ignore", InterpolationWarning)
+        kpss_p = kpss(series, regression="c", nlags="auto",
+                      result_object=False)[1]
+    za_stat, za_p, _, _, break_pos = zivot_andrews(
+        series, regression="c", autolag="AIC")
+    return {
+        "adf_p": adf_p,
+        "kpss_p": kpss_p,
+        "za_p": za_p,
+        "za_break": str(series.index[break_pos]),
+    }
+
+
+def classify_stationarity(adf_p, kpss_p, level=SIGNIFICANCE):
+    """Combine the two opposite-null tests.
+
+    stationary:   ADF rejects the unit root and KPSS keeps stationarity
+    unit root:    ADF keeps the unit root and KPSS rejects stationarity
+    inconclusive: the two tests disagree
+    """
+    adf_rejects = adf_p < level
+    kpss_rejects = kpss_p < level
+    if adf_rejects and not kpss_rejects:
+        return "stationary"
+    if not adf_rejects and kpss_rejects:
+        return "unit root"
+    return "inconclusive"
+
+
+def integration_order(series):
+    """I(0) if the level is stationary, I(1) if the first difference is."""
+    levels = run_unit_root_tests(series)
+    diffs = run_unit_root_tests(series.diff())
+    level_verdict = classify_stationarity(levels["adf_p"], levels["kpss_p"])
+    diff_verdict = classify_stationarity(diffs["adf_p"], diffs["kpss_p"])
+    if level_verdict == "stationary":
+        order = "I(0)"
+    elif diff_verdict == "stationary":
+        order = "I(1)"
+    else:
+        order = "unclear"
+    return levels, diffs, level_verdict, diff_verdict, order
+
+
+def unit_root_table(estimation):
+    """One row per series: tests in levels and first differences, and the order."""
+    rows = []
+    for name in MODEL_COLUMNS:
+        levels, diffs, level_verdict, diff_verdict, order = integration_order(
+            estimation[name])
+        rows.append({
+            "series": name,
+            "level_adf_p": levels["adf_p"],
+            "level_kpss_p": levels["kpss_p"],
+            "level_verdict": level_verdict,
+            "level_za_p": levels["za_p"],
+            "level_za_break": levels["za_break"],
+            "diff_adf_p": diffs["adf_p"],
+            "diff_kpss_p": diffs["kpss_p"],
+            "diff_verdict": diff_verdict,
+            "order": order,
+        })
+    return pd.DataFrame(rows)
+
+
 def main():
     table = build_model_table(read_monthly())
     estimation, holdout = split_sample(table)
@@ -95,6 +186,14 @@ def main():
           f"({len(estimation)} months)")
     print(f"Hold-out:   {holdout.index[0]} to {holdout.index[-1]} "
           f"({len(holdout)} months)")
+
+    unit_roots = unit_root_table(estimation)
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    unit_roots.to_csv(OUT_UNIT_ROOTS, index=False, float_format="%.4f")
+    print(f"Unit roots: -> {OUT_UNIT_ROOTS}")
+    print(unit_roots[["series", "level_adf_p", "level_kpss_p",
+                      "level_verdict", "diff_verdict", "order"]]
+          .to_string(index=False))
 
 
 if __name__ == "__main__":
