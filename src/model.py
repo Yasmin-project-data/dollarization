@@ -16,6 +16,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import statsmodels.api as sm
+from scipy import stats
+from statsmodels.stats.diagnostic import (acorr_breusch_godfrey,
+                                          breaks_cusumolsresid,
+                                          het_breuschpagan)
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+from statsmodels.stats.stattools import jarque_bera
 from statsmodels.tools.sm_exceptions import InterpolationWarning
 from statsmodels.tsa.ardl import UECM
 from statsmodels.tsa.stattools import adfuller, kpss, zivot_andrews
@@ -290,6 +297,75 @@ def coefficient_table(result):
     })
 
 
+# ---------------------------------------------------------------------------
+# Diagnostics (pre-registration, section 3)
+# ---------------------------------------------------------------------------
+# All tests run on the residuals and design matrix of the estimated equation.
+# A p-value below 5% is a failure of that test; failures are reported.
+
+BG_LAGS = 6              # serial correlation: six monthly lags
+CHOW_DATES = ["2020-03", "2022-03"]
+OUT_DIAGNOSTICS = OUT_DIR / "diagnostics.csv"
+
+
+def design(uecm):
+    """The estimated equation as arrays: dependent (first difference of the
+    indicator), regressors with constant, and the month of each row.
+
+    statsmodels keeps these in private attributes; the first rows are lost
+    to the lags, so the months are the last rows of the data index.
+    """
+    y = np.asarray(uecm._y).squeeze()
+    x = np.asarray(uecm._x)
+    months = pd.PeriodIndex(list(uecm.data.row_labels)[-len(y):], freq="M")
+    return y, x, months
+
+
+def ols_of(uecm):
+    """The same equation as plain OLS, for the residual tests."""
+    y, x, _ = design(uecm)
+    return sm.OLS(y, x).fit()
+
+
+def chow_test(uecm, break_month):
+    """Chow F-test: do the coefficients differ before and after `break_month`?"""
+    y, x, months = design(uecm)
+    after = np.asarray(months >= pd.Period(break_month, freq="M"))
+    k = x.shape[1]
+    n1, n2 = (~after).sum(), after.sum()
+    if min(n1, n2) <= k:
+        return float("nan")
+    ssr_all = sm.OLS(y, x).fit().ssr
+    ssr_split = (sm.OLS(y[~after], x[~after]).fit().ssr
+                 + sm.OLS(y[after], x[after]).fit().ssr)
+    f_stat = ((ssr_all - ssr_split) / k) / (ssr_split / (n1 + n2 - 2 * k))
+    return float(stats.f.sf(f_stat, k, n1 + n2 - 2 * k))
+
+
+def max_vif(uecm):
+    """Largest variance inflation factor among the regressors (no constant)."""
+    _, x, _ = design(uecm)
+    x = x[:, 1:]  # first column is the constant
+    return float(max(variance_inflation_factor(x, i) for i in range(x.shape[1])))
+
+
+def run_diagnostics(uecm):
+    """Serial correlation, heteroskedasticity, normality, stability, VIF, breaks."""
+    ols = ols_of(uecm)
+    diagnostics = {
+        "breusch_godfrey_p": float(acorr_breusch_godfrey(
+            ols, nlags=BG_LAGS, result_object=False)[1]),
+        "breusch_pagan_p": float(het_breuschpagan(ols.resid, ols.model.exog)[1]),
+        "jarque_bera_p": float(jarque_bera(ols.resid)[1]),
+        "cusum_p": float(breaks_cusumolsresid(ols.resid, ols.df_model + 1)[1]),
+        "max_vif": max_vif(uecm),
+    }
+    diagnostics["cusum_stable"] = diagnostics["cusum_p"] >= SIGNIFICANCE
+    for month in CHOW_DATES:
+        diagnostics[f"chow_{month.replace('-', '_')}_p"] = chow_test(uecm, month)
+    return diagnostics
+
+
 def main():
     table = build_model_table(read_monthly())
     estimation, holdout = split_sample(table)
@@ -319,6 +395,12 @@ def main():
     print(f"Order {order} chosen by AIC among {n_specs} specifications")
     print(coefficients.to_string(index=False))
     print(f"Long run: { {k: round(v, 3) for k, v in long_run_coefficients(result).items()} }")
+    diagnostics = run_diagnostics(uecm)
+    pd.DataFrame([diagnostics]).to_csv(OUT_DIAGNOSTICS, index=False,
+                                       float_format="%.6f")
+    print("Diagnostics: " + ", ".join(
+        f"{k}={v:.3f}" if isinstance(v, float) else f"{k}={v}"
+        for k, v in diagnostics.items()))
     print(f"Bounds test: F = {bounds['f_stat']:.2f}, 5% bounds "
           f"[{bounds['crit_5pct_lower']:.2f}, {bounds['crit_5pct_upper']:.2f}] "
           f"-> {bounds['conclusion']}")

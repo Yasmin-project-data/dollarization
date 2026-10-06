@@ -118,6 +118,39 @@ def test_estimation_recovers_long_run_relationship():
         1.0, abs=0.2)
 
 
+def test_design_matrix_reproduces_the_fitted_coefficients():
+    data = make_cointegrated()
+    uecm, result = model.fit_uecm(data, (1, 1, 1, 1, 1))
+    y, x, months = model.design(uecm)
+    coefficients = np.linalg.lstsq(x, y, rcond=None)[0]
+    assert coefficients == pytest.approx(result.params.values)
+    assert months[0] == data.index[1]  # one observation lost to the lag
+    assert len(months) == len(y)
+
+
+def test_chow_test_detects_a_break_and_not_a_stable_model():
+    rng = np.random.default_rng(3)
+    data = make_cointegrated(200)
+    stable, _ = model.fit_uecm(data, (1, 1, 1, 1, 1))
+    assert model.chow_test(stable, "2024-01") > 0.01
+
+    broken = data.copy()
+    n_after = len(broken.loc["2024-01":])
+    broken.loc["2024-01":, model.DEPENDENT] += 5 + rng.normal(size=n_after)
+    unstable, _ = model.fit_uecm(broken, (1, 1, 1, 1, 1))
+    assert model.chow_test(unstable, "2024-01") < 0.05
+
+
+def test_diagnostics_return_every_preregistered_test():
+    uecm, _ = model.fit_uecm(make_cointegrated(), (1, 1, 1, 1, 1))
+    diagnostics = model.run_diagnostics(uecm)
+    for key in ["breusch_godfrey_p", "breusch_pagan_p", "jarque_bera_p",
+                "cusum_p", "cusum_stable", "max_vif",
+                "chow_2020_03_p", "chow_2022_03_p"]:
+        assert key in diagnostics
+    assert diagnostics["max_vif"] >= 1.0
+
+
 def test_select_order_counts_every_specification():
     data = make_cointegrated()
     order, n_specs, table = model.select_order(data, max_lag=2)

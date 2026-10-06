@@ -1,0 +1,2 @@
+breusch_godfrey_p,breusch_pagan_p,jarque_bera_p,cusum_p,max_vif,cusum_stable,chow_2020_03_p,chow_2022_03_p
+0.127872,0.000043,0.000024,0.957222,3.803375,True,0.006881,0.000346
