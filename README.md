@@ -69,6 +69,14 @@ python src/robustness.py
 
 Re-estimates eight variants of the model (alternative sample, logit, constant exchange rate, 3-month depreciation, and three extensions from the literature review) on the same hold-out months and writes `outputs/robustness.csv`. Takes about 15 seconds. Changes to the plan are listed in `docs/deviations.md`.
 
+## Tables for the report
+
+```bash
+python src/report_tables.py
+```
+
+Writes `outputs/report_tables.md`: every statistic behind the website, as tables for the technical note. Sample and lag choice, unit-root tests (ADF, KPSS, Zivot-Andrews), the regression table with HAC standard errors and R², long-run coefficients, the bounds test with critical values, all residual diagnostics with their null hypotheses and verdicts (including the tests the model fails), VIF for every regressor, hold-out accuracy, the robustness table, and the full statsmodels output. Run it after `src/model.py` and `src/robustness.py`.
+
 ## Run the tests
 
 ```bash
