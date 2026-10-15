@@ -9,7 +9,7 @@ Indicator definition: `docs/indicator_card.md`. Driver model, fixed before estim
 | Layer | Entry point | Status |
 |---|---|---|
 | Data | `src/ingest.py` | Done, covered by `tests/test_ingest.py` |
-| Model | `src/model.py` | Main specification done: unit roots, error-correction model, bounds test, diagnostics, hold-out evaluation, `model/artifact.json`. Robustness checks not yet done |
+| Model | `src/model.py` | Main specification done: unit roots, error-correction model, bounds test, diagnostics, hold-out evaluation, `model/artifact.json`. Robustness checks in `src/robustness.py` |
 | Website | `src/app.py` | Done: headline, history, driver panel, scenario control, sources, limits. Covered by `tests/test_app.py` |
 
 Main result so far: on the 26 months held out from estimation, the model does **not** beat the random-walk benchmark (RMSE ratio above 1). This is reported on the website and in `model/artifact.json`. Deviations from the pre-registration are in `docs/deviations.md`.
@@ -60,6 +60,14 @@ python src/model.py
 ```
 
 Estimates the model on 2016-01 to 2024-06, evaluates it on the held-out months, and writes `model/artifact.json` and the tables in `outputs/`. The website only reads this file and never estimates anything. Takes under a minute.
+
+## Robustness checks
+
+```bash
+python src/robustness.py
+```
+
+Re-estimates eight variants of the model (alternative sample, logit, constant exchange rate, 3-month depreciation, and three extensions from the literature review) on the same hold-out months and writes `outputs/robustness.csv`. Takes about 15 seconds. Changes to the plan are listed in `docs/deviations.md`.
 
 ## Run the tests
 

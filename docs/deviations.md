@@ -13,3 +13,15 @@ Each entry: what changed, why, and what the pre-registered specification produce
 - **What changed:** the fourth factor is `log_brent_lag1`, the log Brent price shifted by one month, used with the same lag search as the other factors.
 - **Why:** pre-registration allows Brent only at lags 1–3 because oil is published with a delay. Shifting once keeps the August 2026 observation usable (128 months, as planned).
 - **What the pre-registered specification produced:** the same model, written with a shifted regressor.
+
+## 3. Robustness checks share the main model's hold-out months
+
+- **What changed:** pre-registration says the hold-out is the last 20% of the sample. For the robustness checks (`src/robustness.py`) every variant is evaluated on the same hold-out months as the main model (2024-07 onwards), including R1, whose longer sample would otherwise move the hold-out earlier.
+- **Why:** so that RMSE ratios can be compared across variants on identical months.
+- **What the pre-registered rule produced:** for M0 to R4 the rule gives the same months, since they share the 2016-01 start; only R1 would differ.
+
+## 4. Three extensions added after the literature review
+
+- **What changed:** three variants not in the pre-registration: exchange-rate volatility as a fifth regressor (L1), an interaction of depreciation with last month's dollarization level (L2), and step dummies at the two Chow break dates (L3). They are robustness checks only; the main model is unchanged.
+- **Why:** L1 follows Ben Naceur, Hosny & Hadjian (2015) and Cakir et al. (2022); L2 follows Neanidis & Savva (2009), who find stronger effects where dollarization is high; L3 follows our own Chow tests.
+- **What the pre-registered specification produced:** the main model (M0), reproduced exactly by the robustness script. All eight variants and the 2,430 specifications searched by AIC are reported in `outputs/robustness.csv`.

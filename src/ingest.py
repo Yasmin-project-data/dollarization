@@ -24,6 +24,7 @@ Run from the project folder:
 import json
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 RAW_FILE = Path("data/raw/deposits_individuals_nbk.xlsx")
@@ -285,11 +286,26 @@ def apply_manual_averages(table, manual):
     return table
 
 
+def monthly_volatility(daily, published_days, min_days=MIN_DAYS_FOR_AVERAGE):
+    """Exchange-rate volatility: standard deviation of daily log changes of
+    USD/KZT within each month, in percent (weekends count as zero change).
+
+    Months with too few published rates (August 2023) would give a spurious
+    jump, so they are set to missing and filled by linear interpolation
+    between the neighbouring months.
+    """
+    changes = 100 * np.log(daily).diff()
+    vol = changes.groupby(changes.index.to_period("M")).std()
+    vol[published_days.reindex(vol.index) < min_days] = np.nan
+    return vol.interpolate(limit=1, limit_area="inside")
+
+
 def build_exchange_rate():
     """Run all exchange-rate transformations and return the monthly table."""
     daily, was_missing = fill_calendar_gaps(read_daily_rates())
     table = monthly_rates(daily, was_missing)
     table = apply_manual_averages(table, read_manual_values())
+    table["usd_kzt_vol"] = monthly_volatility(daily, table["published_days"])
     return table.reset_index()
 
 
@@ -449,6 +465,25 @@ def add_fx_in_usd(monthly):
     return monthly
 
 
+CONSTANT_RATE_BASE = "2016-01"  # end-of-month rate used for the whole series
+
+
+def add_constant_rate_dollarization(monthly, base=CONSTANT_RATE_BASE):
+    """Alternative measure: dollarization at a constant exchange rate.
+
+    Foreign-currency deposits are valued at the end-of-month USD/KZT rate of
+    the base month instead of the current one, so the share no longer moves
+    when the tenge alone moves (pure revaluation is removed). All foreign
+    currency is treated as USD, which is an approximation.
+    """
+    base_rate = monthly.loc[monthly["period"] == pd.Period(base, freq="M"),
+                            "usd_kzt_eom"].iloc[0]
+    fx_const = monthly["fx_total_usd_mn"] * base_rate
+    monthly["dollarization_const_pct"] = 100 * fx_const / (
+        monthly["kzt_total"] + fx_const)
+    return monthly
+
+
 def merge_monthly(deposits, rates, deposit_rates, cpi, oil):
     """One row per deposit month.
 
@@ -460,7 +495,8 @@ def merge_monthly(deposits, rates, deposit_rates, cpi, oil):
     monthly = monthly.merge(deposit_rates, on="period", how="inner")
     monthly = monthly.merge(cpi, on="period", how="left")
     monthly = monthly.merge(oil, on="period", how="left")
-    return add_fx_in_usd(monthly)
+    monthly = add_fx_in_usd(monthly)
+    return add_constant_rate_dollarization(monthly)
 
 
 def build_metadata(tables):

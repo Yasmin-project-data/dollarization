@@ -1,0 +1,9 @@
+id,variant,estimation,n_obs,order,n_specs_searched,ect_coef,ect_p,depreciation_sr_coef,depreciation_sr_p,depreciation_lr,spread_lr,spread_level_p,bounds_f,bounds_conclusion,rmse_model,rmse_benchmark,rmse_ratio,float_regime_coef,float_regime_p,usd_kzt_vol_coef,usd_kzt_vol_p,dep_x_level_coef,dep_x_level_p,break_2020_coef,break_2020_p,break_2022_coef,break_2022_p
+M0,"Main model (re-estimated, for reference)",2016-01 to 2024-06,99,"(3, 1, 1, 2, 2)",243,-0.0307,0.0316,0.1886,0.0498,6.7765,-4.3819,0.2261,3.8025,cointegration,0.7323,0.5212,1.4049,,,,,,,,,,
+R1,"Sample from 2011-12, float-regime dummy",2011-12 to 2024-06,148,"(3, 1, 1, 2, 1)",243,-0.0095,0.4412,0.2526,0.0001,25.9917,10.0771,0.2044,4.4843,cointegration,0.7871,0.5212,1.5101,-1.6259,0.0102,,,,,,,,
+R2,Logit of dollarization,2016-01 to 2024-06,101,"(1, 1, 1, 2, 3)",243,-0.0286,0.0204,0.0064,0.0537,0.1812,-0.1612,0.2311,3.7671,inconclusive,0.6128,0.5212,1.1758,,,,,,,,,,
+R3,Dollarization at constant exchange rate,2016-01 to 2024-06,99,"(3, 1, 1, 1, 2)",243,-0.0205,0.0122,-0.0063,0.8533,0.6573,-4.8643,0.1649,2.4279,no cointegration,0.4923,0.4646,1.0597,,,,,,,,,,
+R4,3-month depreciation,2016-01 to 2024-06,99,"(3, 1, 1, 1, 2)",243,-0.0327,0.0233,0.0802,0.1491,0.7742,-5.7009,0.0980,2.9970,inconclusive,0.6454,0.5212,1.2383,,,,,,,,,,
+L1,+ exchange-rate volatility,2016-01 to 2024-06,100,"(2, 1, 1, 3, 1, 1)",729,-0.0185,0.1107,0.1180,0.0290,12.6108,-0.2060,0.9637,4.2415,cointegration,0.9385,0.5212,1.8006,,,-0.9294,0.0621,,,,,,
+L2,+ depreciation x dollarization level,2016-01 to 2024-06,99,"(3, 1, 1, 2, 1)",243,-0.0294,0.0272,-0.3879,0.0467,-13.8007,-3.9006,0.2337,3.3791,inconclusive,0.5296,0.5212,1.0162,,,,,1.4246,0.0048,,,,
+L3,+ break dummies 2020-03 and 2022-03,2016-01 to 2024-06,100,"(2, 1, 1, 2, 1)",243,-0.0744,0.0014,0.1882,0.0335,2.5942,7.8164,0.0080,4.5538,cointegration,0.8944,0.5212,1.7161,,,,,,,-0.0963,0.8625,-4.7844,0.0003
