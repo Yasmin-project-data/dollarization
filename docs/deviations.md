@@ -25,3 +25,11 @@ Each entry: what changed, why, and what the pre-registered specification produce
 - **What changed:** three variants not in the pre-registration: exchange-rate volatility as a fifth regressor (L1), an interaction of depreciation with last month's dollarization level (L2), and step dummies at the two Chow break dates (L3). They are robustness checks only; the main model is unchanged.
 - **Why:** L1 follows Ben Naceur, Hosny & Hadjian (2015) and Cakir et al. (2022); L2 follows Neanidis & Savva (2009), who find stronger effects where dollarization is high; L3 follows our own Chow tests.
 - **What the pre-registered specification produced:** the main model (M0), reproduced exactly by the robustness script. All eight variants and the 2,430 specifications searched by AIC are reported in `outputs/robustness.csv`.
+
+## 5. Feedback analysis: does dollarization move the exchange rate?
+
+- **What changed:** a vector autoregression (`src/feedback.py`) of four stationary series (change in log Brent, change in the rate spread, depreciation, change in dollarization), 2016 onwards, lags by AIC. It reports Granger causality in both directions, impulse responses with 95% bands and a variance decomposition, and is shown on the website in its own panel. The main model is unchanged.
+- **Why:** suggested by our instructor; the main model explains dollarization by the exchange rate, and this checks the reverse direction.
+- **Timing choice, made after a first exploratory run (stated openly):** a first run used the monthly average rate (the measure in the main model) and found dollarization strongly "Granger-causing" depreciation. Because dollarization is an end-of-month stock, a late-month fall of the tenge reaches dollarization one month before it reaches the average-rate depreciation, so that result is a timing artefact. The main variant therefore uses end-of-month rates; with them, or with dollarization at a constant exchange rate, the effect disappears. All four combinations are reported in `outputs/feedback_granger.csv`, not only the main one.
+- **What the pre-registered specification produced:** not applicable; this question is not in the pre-registration.
+

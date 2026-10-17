@@ -144,6 +144,29 @@ Failures are reported, not hidden. Heteroskedasticity does not bias the coeffici
 
 8 variants, 2430 specifications searched in total. Each variant chooses its own lags by AIC on the estimation months and is evaluated on the same hold-out months. R2 (logit) is a short-run coefficient on the logit scale, not in pp. R3 (constant exchange rate) removes revaluation; the depreciation effect disappears there, so the main model's depreciation effect is largely mechanical revaluation.
 
+## 9. Feedback: does dollarization move the tenge? (VAR)
+
+| ID | Variant | N | Lags (AIC) | Dollarization → FX, p | FX → dollarization, p | FEVD of FX from dollarization, 12m | Same-month corr. | Stable | Portmanteau p | Normality p |
+|---|---|---|---|---|---|---|---|---|---|---|
+| V1 | End-of-month rate, dollarization (main) | 126 | 1 | 0.295 | 0.093 | 0.9% | 0.62 | True | 0.534 | <0.001 |
+| V2 | End-of-month rate, dollarization at constant rate | 126 | 1 | 0.292 | 0.392 | 0.9% | 0.11 | True | 0.457 | <0.001 |
+| V3 | Monthly average rate, dollarization (timing mismatch) | 126 | 1 | <0.001 | 0.792 | 18.5% | 0.29 | True | 0.786 | <0.001 |
+| V4 | Monthly average rate, dollarization at constant rate | 126 | 1 | 0.072 | 0.497 | 2.5% | 0.00 | True | 0.568 | <0.001 |
+
+Impulse responses, main variant V1 (first 6 months; later months are close to zero):
+
+| Month | FX response to dollarization shock, % | Dollarization response to FX shock, pp |
+|---|---|---|
+| 0 | +0.000 [+0.000, +0.000] | +0.539 [+0.367, +0.710] |
+| 1 | +0.254 [-0.217, +0.715] | -0.082 [-0.272, +0.105] |
+| 2 | +0.079 [-0.075, +0.231] | -0.055 [-0.133, +0.018] |
+| 3 | -0.007 [-0.079, +0.044] | -0.008 [-0.040, +0.017] |
+| 4 | -0.008 [-0.038, +0.009] | +0.001 [-0.009, +0.014] |
+| 5 | -0.002 [-0.011, +0.006] | +0.001 [-0.003, +0.006] |
+| 6 | +0.000 [-0.003, +0.004] | +0.000 [-0.002, +0.002] |
+
+Four-variable VAR (change in log Brent, change in the rate spread, depreciation, change in dollarization), 2016 onwards, lags by AIC (1 to 6). Granger H0: past values of the first variable do not help predict the second. Impulse responses are Cholesky-orthogonalised in that order, one-standard-deviation shocks, 95% Monte Carlo bands in brackets. V1 is the main variant: dollarization is an end-of-month stock, so depreciation is also measured end of month. V3 uses the monthly average rate: a late-month fall of the tenge then reaches dollarization one month before it reaches average-rate depreciation, which makes dollarization appear to Granger-cause the exchange rate. The effect disappears with consistent timing (V1) and with the constant-rate measure (V2, V4 at 5%). Added at the instructor's suggestion, after the pre-registration (docs/deviations.md, entry 5).
+
 ## Annex. Full statsmodels output
 
 ```
@@ -152,8 +175,8 @@ Failures are reported, not hidden. Heteroskedasticity does not bias the coeffici
 Dep. Variable:     D.dollarization_pct   No. Observations:                   99
 Model:             UECM(3, 1, 1, 2, 2)   Log Likelihood                -147.133
 Method:                Conditional MLE   S.D. of innovations              1.070
-Date:                 Fri, 16 Oct 2026   AIC                            324.267
-Time:                         00:06:09   BIC                            363.193
+Date:                 Sat, 17 Oct 2026   AIC                            324.267
+Time:                         20:44:59   BIC                            363.193
 Sample:                     04-30-2016   HQIC                           340.016
                           - 06-30-2024                                         
 ==========================================================================================

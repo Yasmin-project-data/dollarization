@@ -16,6 +16,7 @@ as Markdown tables that can be pasted into the report:
      stability, multicollinearity (VIF per regressor), structural breaks
   7. Out-of-sample accuracy against the random walk
   8. Robustness checks (read from outputs/robustness.csv if it exists)
+  9. Feedback VAR: does dollarization move the tenge? (outputs/feedback_*.csv)
   Annex: the full statsmodels output
 
 Every test row states its null hypothesis and the verdict at 5%, including
@@ -366,6 +367,58 @@ def section_robustness():
             + md_table(extra) + "\n\n" + note)
 
 
+def section_feedback():
+    """Reverse direction: does dollarization move the exchange rate? (VAR)"""
+    granger_file = m.OUT_DIR / "feedback_granger.csv"
+    irf_file = m.OUT_DIR / "feedback_irf.csv"
+    if not granger_file.exists() or not irf_file.exists():
+        return ("## 9. Feedback: does dollarization move the tenge? (VAR)\n\n"
+                "Not found. Run `python src/feedback.py` first.")
+    var = pd.read_csv(granger_file)
+    rows = pd.DataFrame({
+        "ID": var["id"],
+        "Variant": var["variant"],
+        "N": var["n_obs"],
+        "Lags (AIC)": var["lags"],
+        "Dollarization → FX, p": var["dollar_to_fx_p"].map(fmt_p),
+        "FX → dollarization, p": var["fx_to_dollar_p"].map(fmt_p),
+        "FEVD of FX from dollarization, 12m": var["fevd_fx_from_dollar_12m"].map(lambda v: f"{100 * v:.1f}%"),
+        "Same-month corr.": var["same_month_corr"].map(lambda v: f"{v:.2f}"),
+        "Stable": var["stable"],
+        "Portmanteau p": var["whiteness_p"].map(fmt_p),
+        "Normality p": var["normality_p"].map(fmt_p),
+    })
+    irf = pd.read_csv(irf_file).head(7)
+    irf_rows = pd.DataFrame({
+        "Month": irf["month"],
+        "FX response to dollarization shock, %": [
+            f"{v:+.3f} [{lo:+.3f}, {hi:+.3f}]"
+            for v, lo, hi in zip(irf["fx_response"], irf["fx_lower"], irf["fx_upper"])],
+        "Dollarization response to FX shock, pp": [
+            f"{v:+.3f} [{lo:+.3f}, {hi:+.3f}]"
+            for v, lo, hi in zip(irf["dollar_response"], irf["dollar_lower"], irf["dollar_upper"])],
+    })
+    note = (
+        "Four-variable VAR (change in log Brent, change in the rate spread, "
+        "depreciation, change in dollarization), 2016 onwards, lags by AIC "
+        "(1 to 6). Granger H0: past values of the first variable do not help "
+        "predict the second. Impulse responses are Cholesky-orthogonalised in "
+        "that order, one-standard-deviation shocks, 95% Monte Carlo bands in "
+        "brackets. V1 is the main variant: dollarization is an end-of-month "
+        "stock, so depreciation is also measured end of month. V3 uses the "
+        "monthly average rate: a late-month fall of the tenge then reaches "
+        "dollarization one month before it reaches average-rate depreciation, "
+        "which makes dollarization appear to Granger-cause the exchange rate. "
+        "The effect disappears with consistent timing (V1) and with the "
+        "constant-rate measure (V2, V4 at 5%). Added at the instructor's "
+        "suggestion, after the pre-registration (docs/deviations.md, entry 5)."
+    )
+    return ("## 9. Feedback: does dollarization move the tenge? (VAR)\n\n"
+            + md_table(rows) + "\n\nImpulse responses, main variant V1 "
+            "(first 6 months; later months are close to zero):\n\n"
+            + md_table(irf_rows) + "\n\n" + note)
+
+
 def section_annex(fit):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -389,6 +442,7 @@ def build_report():
         section_diagnostics(fit),
         section_holdout(fit),
         section_robustness(),
+        section_feedback(),
         section_annex(fit),
     ]
     return "\n\n".join(parts) + "\n"

@@ -69,13 +69,21 @@ python src/robustness.py
 
 Re-estimates eight variants of the model (alternative sample, logit, constant exchange rate, 3-month depreciation, and three extensions from the literature review) on the same hold-out months and writes `outputs/robustness.csv`. Takes about 15 seconds. Changes to the plan are listed in `docs/deviations.md`.
 
+## Feedback analysis: does dollarization move the tenge?
+
+```bash
+python src/feedback.py
+```
+
+Estimates a small vector autoregression (oil, rate spread, depreciation, dollarization) from 2016 onwards and tests both directions: does the exchange rate predict dollarization, and does dollarization predict the exchange rate? Writes `outputs/feedback_granger.csv`, `outputs/feedback_irf.csv` and `model/feedback.json`, which the website shows in the panel "Does dollarization move the tenge?". Takes a few seconds.
+
 ## Tables for the report
 
 ```bash
 python src/report_tables.py
 ```
 
-Writes `outputs/report_tables.md`: every statistic behind the website, as tables for the technical note. Sample and lag choice, unit-root tests (ADF, KPSS, Zivot-Andrews), the regression table with HAC standard errors and R², long-run coefficients, the bounds test with critical values, all residual diagnostics with their null hypotheses and verdicts (including the tests the model fails), VIF for every regressor, hold-out accuracy, the robustness table, and the full statsmodels output. Run it after `src/model.py` and `src/robustness.py`.
+Writes `outputs/report_tables.md`: every statistic behind the website, as tables for the technical note. Sample and lag choice, unit-root tests (ADF, KPSS, Zivot-Andrews), the regression table with HAC standard errors and R², long-run coefficients, the bounds test with critical values, all residual diagnostics with their null hypotheses and verdicts (including the tests the model fails), VIF for every regressor, hold-out accuracy, the robustness table, and the full statsmodels output. Run it after `src/model.py`, `src/robustness.py` and `src/feedback.py`.
 
 ## Run the tests
 
