@@ -77,13 +77,21 @@ python src/feedback.py
 
 Estimates a small vector autoregression (oil, rate spread, depreciation, dollarization) from 2016 onwards and tests both directions: does the exchange rate predict dollarization, and does dollarization predict the exchange rate? Writes `outputs/feedback_granger.csv`, `outputs/feedback_irf.csv` and `model/feedback.json`, which the website shows in the panel "Does dollarization move the tenge?". Takes a few seconds.
 
+## Decision rule for the treasury
+
+```bash
+python src/decision_rule.py
+```
+
+Turns the latest monthly change into a green / amber / red signal for a bank treasury. The thresholds are the 90th percentiles of monthly changes over the estimation months only (2016-01 to 2024-06): headline dollarization, and dollarization at a constant exchange rate, which separates revaluation from households actually buying foreign currency. Writes `outputs/decision_signals.csv`, `outputs/decision_sensitivity.csv` and `model/decision_rule.json`, which the website shows under the headline and below the history chart.
+
 ## Tables for the report
 
 ```bash
 python src/report_tables.py
 ```
 
-Writes `outputs/report_tables.md`: every statistic behind the website, as tables for the technical note. Sample and lag choice, unit-root tests (ADF, KPSS, Zivot-Andrews), the regression table with HAC standard errors and R², long-run coefficients, the bounds test with critical values, all residual diagnostics with their null hypotheses and verdicts (including the tests the model fails), VIF for every regressor, hold-out accuracy, the robustness table, and the full statsmodels output. Run it after `src/model.py`, `src/robustness.py` and `src/feedback.py`.
+Writes `outputs/report_tables.md`: every statistic behind the website, as tables for the technical note. Sample and lag choice, unit-root tests (ADF, KPSS, Zivot-Andrews), the regression table with HAC standard errors and R², long-run coefficients, the bounds test with critical values, all residual diagnostics with their null hypotheses and verdicts (including the tests the model fails), VIF for every regressor, hold-out accuracy, the robustness table, and the full statsmodels output. Run it after `src/model.py`, `src/robustness.py`, `src/feedback.py` and `src/decision_rule.py`.
 
 ## Run the tests
 

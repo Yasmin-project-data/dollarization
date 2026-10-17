@@ -1,0 +1,4 @@
+percentile,threshold_pp,threshold_const_pp,estimation_amber,estimation_red,holdout_amber,holdout_red,holdout_signal_months
+85,0.3008,0.1884,5,11,1,1,2024-11 2026-05
+90,0.5983,0.4393,3,8,1,0,2024-11
+95,1.8891,1.0265,1,5,0,0,

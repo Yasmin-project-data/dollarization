@@ -167,6 +167,41 @@ Impulse responses, main variant V1 (first 6 months; later months are close to ze
 
 Four-variable VAR (change in log Brent, change in the rate spread, depreciation, change in dollarization), 2016 onwards, lags by AIC (1 to 6). Granger H0: past values of the first variable do not help predict the second. Impulse responses are Cholesky-orthogonalised in that order, one-standard-deviation shocks, 95% Monte Carlo bands in brackets. V1 is the main variant: dollarization is an end-of-month stock, so depreciation is also measured end of month. V3 uses the monthly average rate: a late-month fall of the tenge then reaches dollarization one month before it reaches average-rate depreciation, which makes dollarization appear to Granger-cause the exchange rate. The effect disappears with consistent timing (V1) and with the constant-rate measure (V2, V4 at 5%). Added at the instructor's suggestion, after the pre-registration (docs/deviations.md, entry 5).
 
+## 10. Decision rule for the treasury
+
+| Signal | Condition | Action for the treasury |
+|---|---|---|
+| 🟢 green: no signal | change ≤ 0.60 pp | Normal month. No change to the foreign-currency liquidity buffer is needed. |
+| 🟡 amber: watch | change > 0.60 pp, constant-rate change ≤ 0.44 pp | Dollarization rose faster than usual, but mostly because the tenge weakened and existing dollar deposits were revalued. Monitor closely; no extra buffer yet. |
+| 🔴 red: act | change > 0.60 pp and constant-rate change > 0.44 pp | Dollarization rose faster than usual even at a constant exchange rate: households are converting tenge into foreign currency. Raise the foreign-currency liquidity buffer. |
+
+Months in which the rule fired (2016 onwards):
+
+| Month | Signal | Change, pp | Constant-rate change, pp | Sample |
+|---|---|---|---|---|
+| 2016-01 | amber | +1.19 | +0.01 | estimation |
+| 2017-08 | red | +1.92 | +1.31 | estimation |
+| 2018-08 | red | +2.59 | +1.44 | estimation |
+| 2019-06 | red | +2.82 | +2.86 | estimation |
+| 2020-03 | red | +5.05 | +1.03 | estimation |
+| 2020-09 | amber | +0.60 | +0.06 | estimation |
+| 2021-01 | red | +0.65 | +0.44 | estimation |
+| 2021-11 | red | +1.99 | +1.55 | estimation |
+| 2022-01 | red | +1.34 | +1.16 | estimation |
+| 2022-02 | red | +2.73 | +0.94 | estimation |
+| 2022-06 | amber | +1.23 | -0.64 | estimation |
+| 2024-11 | amber | +1.14 | +0.26 | hold-out |
+
+Sensitivity to the percentile:
+
+| Percentile | Threshold, pp | Constant-rate threshold, pp | Estimation: amber / red | Hold-out: amber / red | Hold-out signal months |
+|---|---|---|---|---|---|
+| 85 | 0.30 | 0.19 | 5 / 11 | 1 / 1 | 2024-11 2026-05 |
+| 90 | 0.60 | 0.44 | 3 / 8 | 1 / 0 | 2024-11 |
+| 95 | 1.89 | 1.03 | 1 / 5 | 0 / 0 | none |
+
+Thresholds are the 90th percentiles of monthly changes over 2016-01 to 2024-06 only (the estimation months); the hold-out (2024-07 to 2026-08) was not used to choose them. Latest month 2026-08: green (-0.09 pp; constant rate +0.20 pp).
+
 ## Annex. Full statsmodels output
 
 ```
@@ -176,7 +211,7 @@ Dep. Variable:     D.dollarization_pct   No. Observations:                   99
 Model:             UECM(3, 1, 1, 2, 2)   Log Likelihood                -147.133
 Method:                Conditional MLE   S.D. of innovations              1.070
 Date:                 Sat, 17 Oct 2026   AIC                            324.267
-Time:                         20:44:59   BIC                            363.193
+Time:                         21:41:29   BIC                            363.193
 Sample:                     04-30-2016   HQIC                           340.016
                           - 06-30-2024                                         
 ==========================================================================================

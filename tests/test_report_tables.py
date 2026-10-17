@@ -37,7 +37,7 @@ def test_md_table_shape():
 def test_report_has_every_section():
     report = report_tables.build_report()
     for heading in ["## 1.", "## 2.", "## 3.", "## 4.", "## 5.", "## 6.",
-                    "## 7.", "## 8.", "## 9.", "## Annex"]:
+                    "## 7.", "## 8.", "## 9.", "## 10.", "## Annex"]:
         assert heading in report
     for word in ["R²", "Breusch-Godfrey", "Breusch-Pagan", "Jarque-Bera",
                  "CUSUM", "Chow", "VIF", "ADF", "KPSS", "RMSE"]:

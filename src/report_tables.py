@@ -17,6 +17,7 @@ as Markdown tables that can be pasted into the report:
   7. Out-of-sample accuracy against the random walk
   8. Robustness checks (read from outputs/robustness.csv if it exists)
   9. Feedback VAR: does dollarization move the tenge? (outputs/feedback_*.csv)
+ 10. Decision rule for the treasury (model/decision_rule.json)
   Annex: the full statsmodels output
 
 Every test row states its null hypothesis and the verdict at 5%, including
@@ -419,6 +420,49 @@ def section_feedback():
             + md_table(irf_rows) + "\n\n" + note)
 
 
+def section_decision_rule():
+    """Treasury decision rule: thresholds, signal months, sensitivity."""
+    rule_file = m.ARTIFACT_FILE.parent / "decision_rule.json"
+    sens_file = m.OUT_DIR / "decision_sensitivity.csv"
+    if not rule_file.exists() or not sens_file.exists():
+        return ("## 10. Decision rule for the treasury\n\n"
+                "Not found. Run `python src/decision_rule.py` first.")
+    import json
+    rule = json.loads(rule_file.read_text(encoding="utf-8"))
+    rules = pd.DataFrame([
+        ("🟢 green: no signal", f"change ≤ {rule['threshold_pp']:.2f} pp", rule["actions"]["green"]["action"]),
+        ("🟡 amber: watch", f"change > {rule['threshold_pp']:.2f} pp, constant-rate change ≤ {rule['threshold_const_pp']:.2f} pp", rule["actions"]["amber"]["action"]),
+        ("🔴 red: act", f"change > {rule['threshold_pp']:.2f} pp and constant-rate change > {rule['threshold_const_pp']:.2f} pp", rule["actions"]["red"]["action"]),
+    ], columns=["Signal", "Condition", "Action for the treasury"])
+    months = pd.DataFrame([
+        (s["period"], s["signal"], f"{s['change_pp']:+.2f}", f"{s['change_const_pp']:+.2f}",
+         "hold-out" if s["in_holdout"] else "estimation")
+        for s in rule["signal_months"]
+    ], columns=["Month", "Signal", "Change, pp", "Constant-rate change, pp", "Sample"])
+    sens = pd.read_csv(sens_file)
+    sens_rows = pd.DataFrame({
+        "Percentile": sens["percentile"],
+        "Threshold, pp": sens["threshold_pp"].map(lambda v: f"{v:.2f}"),
+        "Constant-rate threshold, pp": sens["threshold_const_pp"].map(lambda v: f"{v:.2f}"),
+        "Estimation: amber / red": [f"{a} / {r}" for a, r in zip(sens["estimation_amber"], sens["estimation_red"])],
+        "Hold-out: amber / red": [f"{a} / {r}" for a, r in zip(sens["holdout_amber"], sens["holdout_red"])],
+        "Hold-out signal months": sens["holdout_signal_months"].fillna("none"),
+    })
+    latest = rule["latest"]
+    note = (
+        f"Thresholds are the {rule['percentile']}th percentiles of monthly "
+        f"changes over {rule['chosen_on']} only (the estimation months); the "
+        f"hold-out ({rule['holdout_period']}) was not used to choose them. "
+        f"Latest month {latest['period']}: {latest['signal']} "
+        f"({latest['change_pp']:+.2f} pp; constant rate "
+        f"{latest['change_const_pp']:+.2f} pp)."
+    )
+    return ("## 10. Decision rule for the treasury\n\n" + md_table(rules)
+            + "\n\nMonths in which the rule fired (2016 onwards):\n\n" + md_table(months)
+            + "\n\nSensitivity to the percentile:\n\n" + md_table(sens_rows)
+            + "\n\n" + note)
+
+
 def section_annex(fit):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -443,6 +487,7 @@ def build_report():
         section_holdout(fit),
         section_robustness(),
         section_feedback(),
+        section_decision_rule(),
         section_annex(fit),
     ]
     return "\n\n".join(parts) + "\n"

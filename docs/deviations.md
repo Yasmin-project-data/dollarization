@@ -33,3 +33,9 @@ Each entry: what changed, why, and what the pre-registered specification produce
 - **Timing choice, made after a first exploratory run (stated openly):** a first run used the monthly average rate (the measure in the main model) and found dollarization strongly "Granger-causing" depreciation. Because dollarization is an end-of-month stock, a late-month fall of the tenge reaches dollarization one month before it reaches the average-rate depreciation, so that result is a timing artefact. The main variant therefore uses end-of-month rates; with them, or with dollarization at a constant exchange rate, the effect disappears. All four combinations are reported in `outputs/feedback_granger.csv`, not only the main one.
 - **What the pre-registered specification produced:** not applicable; this question is not in the pre-registration.
 
+## 6. Decision rule: thresholds read from the estimation months
+
+- **What changed:** a three-level treasury signal (`src/decision_rule.py`, shown on the website). Green: monthly change in dollarization at or below the 90th percentile of monthly changes. Amber: above it, but the constant-rate measure rose by no more than its own 90th percentile (mostly revaluation). Red: both above (households converting tenge into foreign currency).
+- **Why:** the guide requires a decision rule with a threshold argued from data. The 90th percentile means "a rise seen in about one month in ten". Using the constant-rate measure separates the revaluation that needs no extra foreign-currency liquidity from real conversions that do.
+- **How it was checked:** thresholds use the estimation months (2016-01 to 2024-06) only; the hold-out months are used only to report how the rule would have behaved. The 85th and 95th percentiles are reported in `outputs/decision_sensitivity.csv`. The percentile itself is a judgement: lower means more false alarms, higher means missed episodes.
+
