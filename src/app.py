@@ -382,5 +382,12 @@ st.markdown(
     "households only, not companies.\n"
     "- Most of the long fall since 2016 comes from growing tenge deposits, not "
     "from households selling dollars: a low reading does not mean dollar "
-    "savings have disappeared."
+    "savings have disappeared.\n"
+    "- The scenario tool shows mostly an accounting effect. When dollarization "
+    "is measured at a constant exchange rate, the depreciation effect "
+    "disappears (robustness check R3): a weaker tenge revalues existing dollar "
+    "deposits rather than making households buy more dollars.\n"
+    "- The effect of depreciation depends on how dollarized deposits already "
+    "are (robustness check L2). At today's level it is close to zero; it was "
+    "larger when dollarization was higher."
 )
