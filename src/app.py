@@ -121,6 +121,9 @@ col3.metric(
     value=f"{latest['kzt_total'] / 1e6:.2f} trn KZT",
 )
 
+from decision_panel import show_decision_status, show_decision_history
+show_decision_status()
+
 retrieved = None
 if metadata:
     retrieved = metadata["sources"]["deposits"]["retrieved"]
@@ -155,6 +158,7 @@ fig.add_annotation(
     font=dict(size=11), xanchor="left",
 )
 st.plotly_chart(fig, width="stretch")
+show_decision_history()
 
 
 # ---------------------------------------------------------------------------
