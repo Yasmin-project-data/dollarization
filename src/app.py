@@ -374,6 +374,9 @@ with st.expander("Data sources and model details", expanded=False):
 # Honesty
 # ---------------------------------------------------------------------------
 
+from feedback_panel import show_feedback_panel
+show_feedback_panel()
+
 st.subheader("What this indicator cannot tell you")
 st.markdown(
     "- When the tenge weakens, foreign-currency deposits rise in tenge terms "
