@@ -1,0 +1,67 @@
+{
+  "headline_dollarization_pct": {
+    "value": 19.1706,
+    "tolerance": 0.01,
+    "description": "Latest dollarization, % (headline)"
+  },
+  "headline_change_pp": {
+    "value": -0.09110000000000085,
+    "tolerance": 0.01,
+    "description": "Latest monthly change, pp"
+  },
+  "headline_period": {
+    "value": "2026-08",
+    "tolerance": null,
+    "description": "Latest month"
+  },
+  "ect_coef": {
+    "value": -0.030660216089002035,
+    "tolerance": 0.001,
+    "description": "Speed of adjustment (ECT)"
+  },
+  "depreciation_sr_coef": {
+    "value": 0.18857419993600114,
+    "tolerance": 0.001,
+    "description": "Short-run depreciation coefficient"
+  },
+  "bounds_f": {
+    "value": 3.802494883702373,
+    "tolerance": 0.01,
+    "description": "Bounds-test F statistic"
+  },
+  "bounds_conclusion": {
+    "value": "cointegration",
+    "tolerance": null,
+    "description": "Bounds-test conclusion"
+  },
+  "rmse_ratio": {
+    "value": 1.4049183154945084,
+    "tolerance": 0.001,
+    "description": "RMSE ratio, model / random walk"
+  },
+  "benchmark_winner": {
+    "value": "benchmark",
+    "tolerance": null,
+    "description": "Hold-out winner"
+  },
+  "r3_depreciation_sr_coef": {
+    "value": -0.0063,
+    "tolerance": 0.001,
+    "description": "R3 depreciation coefficient (constant rate)"
+  },
+  "var_dollar_to_fx_p": {
+    "value": 0.29503106259195994,
+    "tolerance": 0.01,
+    "description": "VAR: dollarization -> exchange rate, Granger p"
+  },
+  "rule_threshold_pp": {
+    "value": 0.5983400000000025,
+    "tolerance": 0.01,
+    "description": "Decision rule threshold, pp"
+  },
+  "rule_latest_signal": {
+    "value": "green",
+    "tolerance": null,
+    "description": "Decision rule, latest signal"
+  }
+}

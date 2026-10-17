@@ -16,6 +16,31 @@ Main result so far: on the 26 months held out from estimation, the model does **
 
 If `model/artifact.json` is missing or unreadable, the website shows a notice instead of the driver panel and scenario control, and the data panels keep working.
 
+## Quick start: one command
+
+On Windows, from the project folder (double-click `run.bat`, or type it in a terminal):
+
+```bat
+run.bat
+```
+
+On the first run it creates a Python environment in `.venv` and installs `requirements.txt`. Then it rebuilds every number from `data/raw` (data, model, robustness checks, feedback VAR, decision rule, report tables), checks them against `docs/expected_numbers.json`, and starts the website. A full run takes about 5 minutes the first time and 2-3 minutes after that.
+
+- `run.bat build` rebuilds and checks only, without starting the site.
+- `run.bat site` only starts the site from the files already built.
+
+The step-by-step commands below do the same thing one script at a time.
+
+## Reproducibility and tolerance
+
+`python src/check.py` compares the numbers the pipeline has just produced with the reported numbers in `docs/expected_numbers.json` and prints PASS or FAIL for each.
+
+- **Headline tolerance: the latest dollarization value must reproduce within ±0.01 percentage points** (19.17% for August 2026).
+- Model coefficients within ±0.001, the bounds-test F statistic within ±0.01, the RMSE ratio within ±0.001, the decision-rule threshold within ±0.01 pp; text results (bounds-test conclusion, hold-out winner, latest signal) must match exactly.
+- The only random step, the Monte Carlo band of the impulse response in `src/feedback.py`, uses a fixed seed (2026).
+
+`python src/check.py --record` overwrites the expected numbers; use it only after a deliberate change and say so in the commit message.
+
 ## Install
 
 Python 3.11 or newer.

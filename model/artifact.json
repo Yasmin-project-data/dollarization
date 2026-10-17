@@ -2,7 +2,7 @@
   "model": {
     "name": "ARDL / error-correction model of household deposit dollarization",
     "type": "ECM",
-    "estimated_at": "2026-10-06T20:44:40+05:00",
+    "estimated_at": "2026-10-17T22:34:47+05:00",
     "dependent": {
       "name": "dollarization_pct",
       "unit": "percent"

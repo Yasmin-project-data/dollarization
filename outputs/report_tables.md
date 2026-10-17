@@ -211,7 +211,7 @@ Dep. Variable:     D.dollarization_pct   No. Observations:                   99
 Model:             UECM(3, 1, 1, 2, 2)   Log Likelihood                -147.133
 Method:                Conditional MLE   S.D. of innovations              1.070
 Date:                 Sat, 17 Oct 2026   AIC                            324.267
-Time:                         21:41:29   BIC                            363.193
+Time:                         22:35:06   BIC                            363.193
 Sample:                     04-30-2016   HQIC                           340.016
                           - 06-30-2024                                         
 ==========================================================================================
