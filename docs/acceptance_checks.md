@@ -13,31 +13,31 @@ Two kinds of check:
 
 | Check | What the examiner does | How we checked | Result | Checked by | Date |
 |---|---|---|---|---|---|
-| 1 | Clone, follow the README, environment installs without repair | By hand, other laptop, steps A | | | |
-| 2 | One command serves the site within 10 minutes of the clone | By hand, other laptop, steps A (stopwatch) | | | |
-| 3 | Headline value, unit, period, latest change without scrolling | `acceptance.py` + look at the page | | | |
-| 4 | Page renders in under 3 s on cached data | `acceptance.py` + browser, steps B | | | |
-| 5 | Three driver contributions match `model/artifact.json` | `acceptance.py` + steps C | | | |
-| 6 | Scenario control changes output and band coherently | `acceptance.py` + move the slider | | | |
-| 7 | Network off: loads from cache and says so | By hand, steps D | | | |
-| 8 | Artifact renamed: plain-language message | `acceptance.py` + steps E | | | |
-| 9 | Headline figure not a literal in the presentation layer | `acceptance.py` | | | |
-| 10 | No credentials or personal data in files or history | `acceptance.py` + GitHub, steps F | | | |
+| 1 | Clone, follow the README, environment installs without repair | By hand, other laptop, steps A | PASS: no manual repair | Gulzat | 2026-10-18 |
+| 2 | One command serves the site within 10 minutes of the clone | By hand, other laptop, steps A (stopwatch) | PASS: 1 min 23 s for run.bat, about 4.5 min from clone | Gulzat  | 2026-10-18 |
+| 3 | Headline value, unit, period, latest change without scrolling | `acceptance.py` + look at the page | PASS (acceptance.py): 19.2%, August 2026, -0.09 pp | Yasmin | 2026-10-18 |
+| 4 | Page renders in under 3 s on cached data | `acceptance.py` + browser, steps B | PASS: about 1 s in the browser, 0.5 s headless | Yasmin | 2026-10-18 |
+| 5 | Three driver contributions match `model/artifact.json` | `acceptance.py` + steps C | PASS: -0.39, -0.58, +0.09 pp in the file and on scree | Yasmin | 2026-10-18 |
+| 6 | Scenario control changes output and band coherently | `acceptance.py` + move the slider | PASS (acceptance.py) | Yasmin | 2026-10-18 |
+| 7 | Network off: loads from cache and says so | By hand, steps D | PASS: page loads with Wi-Fi off and shows the cached-snapshot notice | Yasmin | 2026-10-18 |
+| 8 | Artifact renamed: plain-language message | `acceptance.py` + steps E | PASS: plain-language notice, headline and history still shown | Yasmin | 2026-10-18 |
+| 9 | Headline figure not a literal in the presentation layer | `acceptance.py` | PASS (acceptance.py) | Yasmin | 2026-10-18 |
+| 10 | No credentials or personal data in files or history | `acceptance.py` + GitHub, steps F | PASS (acceptance.py): files and git history | Yasmin | 2026-10-18 |
 
 ## Submission checklist (Annex C)
 
 | Item | Status | Evidence |
 |---|---|---|
-| C1 Indicator registered, approved, unchanged since Week 2 | | `docs/indicator_card.md` |
-| C2 Indicator card covers every row of Table 1 | | `docs/indicator_card.md` |
-| C3 `data/raw` untouched since download, `SOURCES.md` complete | | GitHub history of `data/raw` |
-| C4 Deleting `data/processed` and re-running restores it exactly | | `acceptance.py` (check C4) |
-| C5 `model/artifact.json` committed with coefficients, covariance, sample, timestamp, diagnostics, benchmark | | `model/artifact.json` |
-| C6 No regression call and no hard-coded headline in the presentation layer | | `acceptance.py` (check 9) |
-| C7 All ten checks pass on a machine that is not ours | | Table above, "other laptop" |
-| C8 Offline and missing-artifact paths show a clear message | | Checks 7 and 8 |
-| C9 Environment pinned, seeds fixed, tolerance stated | | `requirements.txt`, `README.md` (Reproducibility and tolerance) |
-| C10 Week 6 replication receipt from another team | | No exchange between teams this term; to confirm with the instructor |
+| C1 Indicator registered, approved, unchanged since Week 2 | done | `docs/indicator_card.md` |
+| C2 Indicator card covers every row of Table 1 | done | `docs/indicator_card.md` |
+| C3 `data/raw` untouched since download, `SOURCES.md` complete | done | GitHub history of `data/raw` |
+| C4 Deleting `data/processed` and re-running restores it exactly | done | `acceptance.py` (check C4) |
+| C5 `model/artifact.json` committed with coefficients, covariance, sample, timestamp, diagnostics, benchmark | done | `model/artifact.json` |
+| C6 No regression call and no hard-coded headline in the presentation layer | done | `acceptance.py` (check 9) |
+| C7 All ten checks pass on a machine that is not ours | done | Table above, "other laptop" |
+| C8 Offline and missing-artifact paths show a clear message | done | Checks 7 and 8 |
+| C9 Environment pinned, seeds fixed, tolerance stated | done | `requirements.txt`, `README.md` (Reproducibility and tolerance) |
+| C10 Week 6 replication receipt from another team | to confirm with the instructor | No exchange between teams this term; to confirm with the instructor |
 
 ## Steps
 
