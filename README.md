@@ -118,6 +118,14 @@ python src/report_tables.py
 
 Writes `outputs/report_tables.md`: every statistic behind the website, as tables for the technical note. Sample and lag choice, unit-root tests (ADF, KPSS, Zivot-Andrews), the regression table with HAC standard errors and R², long-run coefficients, the bounds test with critical values, all residual diagnostics with their null hypotheses and verdicts (including the tests the model fails), VIF for every regressor, hold-out accuracy, the robustness table, and the full statsmodels output. Run it after `src/model.py`, `src/robustness.py`, `src/feedback.py` and `src/decision_rule.py`.
 
+## Acceptance self-check
+
+```bash
+python src/acceptance.py
+```
+
+Runs the acceptance checks of the assignment guide that can be automated (3-10 and "deleting data/processed restores it exactly") on temporary copies, without changing the project, and writes `outputs/acceptance_report.md`. The checks that need a person (fresh clone on another laptop, stopwatch, network off) and the record of all results are in `docs/acceptance_checks.md`.
+
 ## Run the tests
 
 ```bash
