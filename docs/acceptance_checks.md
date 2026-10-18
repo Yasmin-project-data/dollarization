@@ -13,8 +13,8 @@ Two kinds of check:
 
 | Check | What the examiner does | How we checked | Result | Checked by | Date |
 |---|---|---|---|---|---|
-| 1 | Clone, follow the README, environment installs without repair | By hand, other laptop, steps A | | | |
-| 2 | One command serves the site within 10 minutes of the clone | By hand, other laptop, steps A (stopwatch) | | | |
+| 1 | Clone, follow the README, environment installs without repair | By hand, other laptop, steps A | Passed: `run.bat` created the environment and installed the packages by itself; no manual repair. Done on Gulzat's laptop from a fresh clone, not on a second machine | Gulzat | 2026-10-18 |
+| 2 | One command serves the site within 10 minutes of the clone | By hand, other laptop, steps A (stopwatch) | Site opened in 1 min 23 s (limit 10 min). Done on Gulzat's laptop from a fresh clone, not on a second machine. Headline 19.2% (-0.09 pp), green treasury signal and all charts shown | Gulzat | 2026-10-18 |
 | 3 | Headline value, unit, period, latest change without scrolling | `acceptance.py` + look at the page | | | |
 | 4 | Page renders in under 3 s on cached data | `acceptance.py` + browser, steps B | | | |
 | 5 | Three driver contributions match `model/artifact.json` | `acceptance.py` + steps C | | | |
