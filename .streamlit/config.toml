@@ -1,0 +1,13 @@
+# Website theme (read by Streamlit when the site is started from this folder).
+# The rest of the look (cards, header, fonts) is in src/style.py.
+
+[theme]
+base = "light"
+primaryColor = "#0e1a1f"
+backgroundColor = "#eef0ec"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#0e1a1f"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
