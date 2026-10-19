@@ -17,29 +17,32 @@ set PYTHONIOENCODING=utf-8
 set PY=.venv\Scripts\python.exe
 
 if not exist "%PY%" (
-    echo [1/9] Creating the Python environment in .venv ...
+    echo [1/10] Creating the Python environment in .venv ...
     python -m venv .venv || goto :no_python
     "%PY%" -m pip install --upgrade pip >nul
     "%PY%" -m pip install -r requirements.txt || goto :failed
 ) else (
-    echo [1/9] Python environment found in .venv
+    echo [1/10] Python environment found in .venv
+    "%PY%" -m pip install -q -r requirements.txt || goto :failed
 )
 
 if /i "%1"=="site" goto :site
 
-echo [2/9] Data: python src/ingest.py
+echo [2/10] Data: python src/ingest.py
 "%PY%" src\ingest.py || goto :failed
-echo [3/9] Model: python src/model.py
+echo [3/10] Model: python src/model.py
 "%PY%" src\model.py || goto :failed
-echo [4/9] Robustness checks (1-3 minutes): python src/robustness.py
+echo [4/10] Robustness checks (1-3 minutes): python src/robustness.py
 "%PY%" src\robustness.py || goto :failed
-echo [5/9] Feedback VAR: python src/feedback.py
+echo [5/10] Feedback VAR: python src/feedback.py
 "%PY%" src\feedback.py || goto :failed
-echo [6/9] Decision rule: python src/decision_rule.py
+echo [6/10] Decision rule: python src/decision_rule.py
 "%PY%" src\decision_rule.py || goto :failed
-echo [7/9] Report tables: python src/report_tables.py
+echo [7/10] Report tables: python src/report_tables.py
 "%PY%" src\report_tables.py || goto :failed
-echo [8/9] Reproducibility check: python src/check.py
+echo [8/10] Figures for the report: python src/figures.py
+"%PY%" src\figures.py || goto :failed
+echo [9/10] Reproducibility check: python src/check.py
 "%PY%" src\check.py || goto :failed
 
 if /i "%1"=="build" (
@@ -49,7 +52,7 @@ if /i "%1"=="build" (
 )
 
 :site
-echo [9/9] Starting the website. Stop it with Ctrl+C.
+echo [10/10] Starting the website. Stop it with Ctrl+C.
 "%PY%" -m streamlit run src\app.py
 goto :eof
 

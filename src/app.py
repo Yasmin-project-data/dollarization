@@ -19,11 +19,14 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
+from style import INK, LIME_DARK, apply_style, hero
+
 DATA_FILE = Path("data/processed/monthly.csv")
 METADATA_FILE = Path("data/processed/metadata.json")
 ARTIFACT_FILE = Path("model/artifact.json")
 
 st.set_page_config(page_title="KZ Deposit Dollarization", layout="wide")
+apply_style()
 
 
 # ---------------------------------------------------------------------------
@@ -97,13 +100,15 @@ previous = series.iloc[-2]
 change = latest["dollarization_pct"] - previous["dollarization_pct"]
 latest_month = pd.Period(latest["period"], freq="M").strftime("%B %Y")
 
-st.title("Kazakhstan Household Deposit Dollarization Index")
-st.caption(
+hero(
+    "Kazakhstan household deposit dollarization index",
     "Share of household bank deposits held in foreign currency. "
-    "For bank treasury teams planning foreign-currency liquidity."
+    "For bank treasury teams planning foreign-currency liquidity.",
+    note=f"Latest month: <b>{latest_month}</b> · end-of-month stocks",
 )
 
-col1, col2, col3 = st.columns(3)
+kpis = st.container(key="kpis")
+col1, col2, col3 = kpis.columns(3)
 col1.metric(
     label=f"Dollarization, {latest_month}",
     value=f"{latest['dollarization_pct']:.1f}%",
@@ -142,7 +147,8 @@ st.subheader("History")
 fig = go.Figure()
 fig.add_trace(go.Scatter(
     x=series["date"], y=series["dollarization_pct"],
-    mode="lines", name="Dollarization",
+    mode="lines", name="Dollarization", line=dict(width=3, color=INK),
+    fill="tozeroy", fillcolor="rgba(212,242,106,0.45)",
     hovertemplate="%{x|%b %Y}: %{y:.1f}%<extra></extra>",
 ))
 fig.update_layout(
@@ -178,7 +184,7 @@ DIAGNOSTIC_LABELS = {
     "chow_2020_03_p": "no break in March 2020 (Chow)",
     "chow_2022_03_p": "no break in March 2022 (Chow)",
 }
-POSITIVE_COLOR, NEGATIVE_COLOR = "#2a6f97", "#d98324"
+POSITIVE_COLOR, NEGATIVE_COLOR = INK, LIME_DARK
 
 
 def month_name(period):
@@ -281,7 +287,7 @@ def show_scenario(artifact):
                              hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=grid, y=centre - width, mode="lines",
                              line=dict(width=0), fill="tonexty",
-                             fillcolor="rgba(42,111,151,0.2)",
+                             fillcolor="rgba(212,242,106,0.55)",
                              name="95% band", hoverinfo="skip"))
     fig.add_trace(go.Scatter(x=grid, y=centre, mode="lines", name="Implied level",
                              line=dict(color=POSITIVE_COLOR),

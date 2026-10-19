@@ -210,8 +210,8 @@ Thresholds are the 90th percentiles of monthly changes over 2016-01 to 2024-06 o
 Dep. Variable:     D.dollarization_pct   No. Observations:                   99
 Model:             UECM(3, 1, 1, 2, 2)   Log Likelihood                -147.133
 Method:                Conditional MLE   S.D. of innovations              1.070
-Date:                 Sat, 17 Oct 2026   AIC                            324.267
-Time:                         22:35:06   BIC                            363.193
+Date:                 Mon, 19 Oct 2026   AIC                            324.267
+Time:                         10:46:29   BIC                            363.193
 Sample:                     04-30-2016   HQIC                           340.016
                           - 06-30-2024                                         
 ==========================================================================================
