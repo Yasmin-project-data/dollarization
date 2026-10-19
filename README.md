@@ -24,7 +24,7 @@ On Windows, from the project folder (double-click `run.bat`, or type it in a ter
 run.bat
 ```
 
-On the first run it creates a Python environment in `.venv` and installs `requirements.txt`. Then it rebuilds every number from `data/raw` (data, model, robustness checks, feedback VAR, decision rule, report tables), checks them against `docs/expected_numbers.json`, and starts the website. A full run takes about 5 minutes the first time and 2-3 minutes after that.
+On the first run it creates a Python environment in `.venv` and installs `requirements.txt`. Then it rebuilds every number from `data/raw` (data, model, robustness checks, feedback VAR, decision rule, report tables, figures), checks them against `docs/expected_numbers.json`, and starts the website. A full run takes about 5 minutes the first time and 2-3 minutes after that.
 
 - `run.bat build` rebuilds and checks only, without starting the site.
 - `run.bat site` only starts the site from the files already built.
@@ -117,6 +117,14 @@ python src/report_tables.py
 ```
 
 Writes `outputs/report_tables.md`: every statistic behind the website, as tables for the technical note. Sample and lag choice, unit-root tests (ADF, KPSS, Zivot-Andrews), the regression table with HAC standard errors and R², long-run coefficients, the bounds test with critical values, all residual diagnostics with their null hypotheses and verdicts (including the tests the model fails), VIF for every regressor, hold-out accuracy, the robustness table, and the full statsmodels output. Run it after `src/model.py`, `src/robustness.py`, `src/feedback.py` and `src/decision_rule.py`.
+
+## Figures for the report
+
+```bash
+python src/figures.py
+```
+
+Draws the six figures of the technical note into `outputs/figures/` (PNG, 200 dpi, 6.5 inches wide): the history of the indicator, headline vs constant-exchange-rate dollarization, the hold-out against the random walk, residual diagnostics with the CUSUM test, the VAR impulse responses, and the decision-rule signals. Every figure is drawn from the files the pipeline writes, never from typed numbers. `run.bat` runs it automatically.
 
 ## Acceptance self-check
 
