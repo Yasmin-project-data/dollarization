@@ -47,3 +47,29 @@ Full results: outputs/stationarity_tests.csv, outputs/stationarity_extra.csv.
 | dollarization_const_pct | I(0)/I(1) | Difference stationary by all three tests |
 
 No variable is I(2), so the ARDL bounds test is valid. Logit transform checked and gives the same picture, so percentages are kept.
+
+## ACF / PACF (stationary forms, cleaned data, 2016-01 onwards)
+Band: +/-1.96/sqrt(n) = +/-0.17. Full results: outputs/acf_pacf_lags.csv.
+
+| Series | Significant PACF lags | Reading | Lag range |
+|---|---|---|---|
+| d_dollarization | 1 (weak), 10 (isolated) | Short memory | 1-3 |
+| depreciation_1m | 1, 2 (negative), 16 (isolated) | Overshoot and partial reversal | 0-3 |
+| d_rate_spread | 20 (isolated) | No memory, close to white noise | 0-3 |
+| d_inflation_yoy | 1 (strong), 13 | AR(1); lag 12-13 is a base effect of the year-on-year measure | 0-3 |
+| d_log_brent | 1, 3 | Short memory | 0-3 |
+
+No structure beyond lag 3 except isolated spikes (about 1 in 24 is expected by chance at 5%).
+Maximum lag 3 is kept. Change from the original design: regressor lags now start at 0 (spread shows no memory).
+Grid: dependent 1-3, regressors 0-3 = 768 specifications.
+
+## Lag selection (AIC and BIC)
+Grid: dependent lags 1-3, regressor lags 0-3, 768 specifications (outputs/lag_selection_grid.csv).
+Common sample for all specifications: 2016-05 to 2024-06, n = 98. Hold-out (2024-07 onwards) excluded.
+Regressors: depreciation_1m, rate_spread, inflation_yoy, log_brent_lag1.
+
+Result: AIC and BIC both select ARDL(1,0,0,0,0): AIC 273.89, BIC 289.40.
+Several models are within 2 AIC points (e.g. Brent with 2 lags: 274.42), so the simplest one is kept;
+BIC prefers it clearly (next best +3.8, Brent with 2 lags +5.7).
+Consistent with ACF/PACF: only lag 1 of d_dollarization is significant.
+Original model (3,1,1,2,2) needed more lags mainly to fit shock-and-reversal patterns that cleaning removed.
