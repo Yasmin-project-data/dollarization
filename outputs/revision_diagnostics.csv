@@ -1,0 +1,6 @@
+test,H0,p-value,H0 rejected at 5%
+Breusch-Godfrey (4 lags),no autocorrelation,0.576211020539669,False
+Ljung-Box (12 lags),no autocorrelation,0.7389265345634015,False
+Breusch-Pagan,homoskedastic,0.075768939832266,False
+Jarque-Bera,normal residuals,0.00019439239333526084,True
+CUSUM (OLS residuals),stable coefficients,0.9874980767740605,False
