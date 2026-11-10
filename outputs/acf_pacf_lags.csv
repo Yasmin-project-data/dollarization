@@ -1,0 +1,6 @@
+series,n,band,significant ACF lags,significant PACF lags
+d_dollarization,127,0.174,"[1, 10, 22]","[1, 10]"
+depreciation_1m,127,0.174,"[1, 16, 17]","[1, 2, 16]"
+d_rate_spread,127,0.174,[20],[20]
+d_inflation_yoy,127,0.174,"[1, 2, 3, 12]","[1, 13]"
+d_log_brent,126,0.175,"[1, 3, 16]","[1, 3]"
