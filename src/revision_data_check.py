@@ -1,45 +1,66 @@
 # %%
+import warnings
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from pathlib import Path
+from statsmodels.tsa.stattools import adfuller, kpss
 
-df = pd.read_csv(Path("data/processed") / "monthly.csv",
-                 parse_dates=["period"], index_col="period")
-clean = df.copy()
+warnings.filterwarnings("ignore")  # KPSS warns when p-value is outside its lookup table
 
-cols = ["dollarization_pct", "dollarization_const_pct", "usd_kzt_avg",
-        "rate_spread", "inflation_yoy_pct", "brent_usd"]
-log_cols = ["usd_kzt_avg", "brent_usd"]  # detect on % change, not on level change
-start = "2016-01-01"
-log_rows = []
+d = pd.read_csv(Path("data/processed") / "monthly_clean.csv",
+                parse_dates=["period"], index_col="period").loc["2016-01-01":]
 
-for col in cols:
-    s = df.loc[start:, col]
-    ch = np.log(s).diff() if col in log_cols else s.diff()
-    q1, q3 = ch.quantile([0.25, 0.75])
-    iqr = q3 - q1
-    low, high = q1 - 3 * iqr, q3 + 3 * iqr
-    bad = ch[(ch < low) | (ch > high)].index
-    for month in bad:
-        log_rows.append({"series": col, "month": month.strftime("%Y-%m"),
-                         "old_value": round(s[month], 3), "change": round(ch[month], 3)})
-        clean.loc[month, col] = np.nan
-    clean[col] = clean[col].interpolate(limit_area="inside")
+series = {
+    "dollarization_pct": d["dollarization_pct"],
+    "dollarization_const_pct": d["dollarization_const_pct"],
+    "depreciation_1m_pct": d["usd_kzt_avg"].pct_change() * 100,
+    "rate_spread": d["rate_spread"],
+    "inflation_yoy_pct": d["inflation_yoy_pct"],
+    "log_brent": np.log(d["brent_usd"]),
+}
 
-outlier_log = pd.DataFrame(log_rows)
-print(outlier_log.to_string(index=False))
-print("\nTotal replaced:", len(outlier_log))
+rows = []
+for name, s in series.items():
+    for form, x, reg in [("level", s, "c"), ("level+trend", s, "ct"), ("diff", s.diff(), "c")]:
+        x = x.dropna()
+        adf_p = adfuller(x, regression=reg, autolag="AIC")[1]
+        kpss_p = kpss(x, regression=reg, nlags="auto")[1]
+        if adf_p < 0.05 and kpss_p > 0.05:
+            verdict = "stationary"
+        elif adf_p >= 0.05 and kpss_p <= 0.05:
+            verdict = "non-stationary"
+        else:
+            verdict = "unclear"
+        rows.append({"series": name, "form": form, "ADF p": round(adf_p, 3),
+                     "KPSS p": round(kpss_p, 3), "verdict": verdict})
 
-clean.to_csv(Path("data/processed") / "monthly_clean.csv")
-Path("outputs").mkdir(exist_ok=True)
-outlier_log.to_csv(Path("outputs") / "outlier_log.csv", index=False)
+table = pd.DataFrame(rows)
+print(table.to_string(index=False))
+table.to_csv(Path("outputs") / "stationarity_tests.csv", index=False)
 
-fig, axes = plt.subplots(len(cols), 1, figsize=(11, 15), sharex=True)
-for ax, col in zip(axes, cols):
-    ax.plot(df.loc[start:, col], label="original", color="lightgray", lw=2)
-    ax.plot(clean.loc[start:, col], label="cleaned", color="tab:blue", lw=1)
-    ax.set_title(col)
-axes[0].legend()
-plt.tight_layout()
-plt.show()
+# %%
+from statsmodels.tsa.stattools import zivot_andrews
+
+extra = {
+    "dollarization_pct": d["dollarization_pct"],
+    "dollarization_const_pct": d["dollarization_const_pct"],
+    "logit_dollarization": np.log(d["dollarization_pct"] / (100 - d["dollarization_pct"])),
+    "logit_dollarization_const": np.log(d["dollarization_const_pct"] / (100 - d["dollarization_const_pct"])),
+    "inflation_yoy_pct": d["inflation_yoy_pct"],
+}
+
+rows = []
+for name, s in extra.items():
+    for form, x in [("level", s), ("diff", s.diff())]:
+        x = x.dropna()
+        adf_ct = adfuller(x, regression="ct", autolag="AIC")[1]
+        kpss_ct = kpss(x, regression="ct", nlags="auto")[1]
+        za = zivot_andrews(x, regression="c", autolag="AIC")
+        rows.append({"series": name, "form": form,
+                     "ADF(ct) p": round(adf_ct, 3), "KPSS(ct) p": round(kpss_ct, 3),
+                     "ZA p": round(za[1], 3), "ZA break": x.index[za[4]].strftime("%Y-%m")})
+
+extra_table = pd.DataFrame(rows)
+print()
+print(extra_table.to_string(index=False))
+extra_table.to_csv(Path("outputs") / "stationarity_extra.csv", index=False)

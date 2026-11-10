@@ -32,3 +32,18 @@ Original data kept in monthly.csv; cleaned data in data/processed/monthly_clean.
 
 Sensitivity: a 2*IQR threshold was considered but not used as the main rule (no standard justification).
 Robustness: model will be estimated on both original and cleaned data, results compared.
+
+## Stationarity (cleaned data, 2016-01 onwards)
+Tests: ADF (H0 unit root), KPSS (H0 stationary), Zivot-Andrews (H0 unit root, one break).
+Full results: outputs/stationarity_tests.csv, outputs/stationarity_extra.csv.
+
+| Variable | Order | Note |
+|---|---|---|
+| depreciation_1m_pct | I(0) | All tests agree |
+| rate_spread | I(1) | Level non-stationary, difference stationary |
+| log_brent | I(1) | Level non-stationary (trend-stationary at 5%), difference stationary |
+| inflation_yoy_pct | I(1) | Difference stationary once a break (2023-02) is allowed |
+| dollarization_pct | I(0)/I(1) | ADF and ZA (break 2017-10) reject unit root, KPSS rejects stationarity |
+| dollarization_const_pct | I(0)/I(1) | Difference stationary by all three tests |
+
+No variable is I(2), so the ARDL bounds test is valid. Logit transform checked and gives the same picture, so percentages are kept.

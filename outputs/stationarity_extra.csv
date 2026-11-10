@@ -1,0 +1,11 @@
+series,form,ADF(ct) p,KPSS(ct) p,ZA p,ZA break
+dollarization_pct,level,0.0,0.01,0.005,2017-10
+dollarization_pct,diff,0.0,0.036,0.0,2022-02
+dollarization_const_pct,level,0.017,0.01,0.039,2017-10
+dollarization_const_pct,diff,0.0,0.1,0.0,2023-03
+logit_dollarization,level,0.0,0.01,0.001,2021-10
+logit_dollarization,diff,0.0,0.014,0.0,2022-02
+logit_dollarization_const,level,0.0,0.01,0.001,2017-10
+logit_dollarization_const,diff,0.0,0.041,0.0,2023-03
+inflation_yoy_pct,level,0.389,0.025,0.136,2022-02
+inflation_yoy_pct,diff,0.246,0.1,0.002,2023-02

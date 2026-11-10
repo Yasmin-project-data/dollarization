@@ -1,0 +1,19 @@
+series,form,ADF p,KPSS p,verdict
+dollarization_pct,level,0.0,0.01,unclear
+dollarization_pct,level+trend,0.0,0.01,unclear
+dollarization_pct,diff,0.0,0.017,unclear
+dollarization_const_pct,level,0.002,0.01,unclear
+dollarization_const_pct,level+trend,0.017,0.01,unclear
+dollarization_const_pct,diff,0.069,0.01,non-stationary
+depreciation_1m_pct,level,0.0,0.1,stationary
+depreciation_1m_pct,level+trend,0.0,0.061,stationary
+depreciation_1m_pct,diff,0.0,0.1,stationary
+rate_spread,level,0.901,0.01,non-stationary
+rate_spread,level+trend,0.572,0.01,non-stationary
+rate_spread,diff,0.0,0.1,stationary
+inflation_yoy_pct,level,0.24,0.1,unclear
+inflation_yoy_pct,level+trend,0.389,0.025,non-stationary
+inflation_yoy_pct,diff,0.062,0.1,unclear
+log_brent,level,0.188,0.01,non-stationary
+log_brent,level+trend,0.039,0.1,stationary
+log_brent,diff,0.0,0.1,stationary
