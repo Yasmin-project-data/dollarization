@@ -1,0 +1,12 @@
+series,month,old_value,change
+dollarization_pct,2020-03,47.437,5.046
+dollarization_const_pct,2019-06,44.854,2.864
+usd_kzt_avg,2020-03,415.301,0.095
+usd_kzt_avg,2022-03,499.749,0.137
+usd_kzt_avg,2022-04,453.384,-0.097
+rate_spread,2016-02,8.2,2.8
+inflation_yoy_pct,2016-10,11.297,-5.089
+inflation_yoy_pct,2016-11,8.614,-2.683
+inflation_yoy_pct,2022-03,12.08,3.35
+inflation_yoy_pct,2023-03,18.15,-3.279
+brent_usd,2020-03,33.947,-0.495
