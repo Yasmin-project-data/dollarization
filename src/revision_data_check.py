@@ -4,104 +4,112 @@ import pandas as pd
 import statsmodels.api as sm
 import matplotlib.pyplot as plt
 from pathlib import Path
-from statsmodels.stats.diagnostic import (acorr_breusch_godfrey, het_breuschpagan,
-                                          acorr_ljungbox, breaks_cusumolsresid)
-from statsmodels.stats.stattools import jarque_bera
-from statsmodels.graphics.tsaplots import plot_acf
+from scipy import stats
 
-d = pd.read_csv(Path("data/processed") / "monthly_clean.csv",
-                parse_dates=["period"], index_col="period").loc["2016-01-01":]
+proc = Path("data/processed")
+clean = pd.read_csv(proc / "monthly_clean.csv", parse_dates=["period"], index_col="period")
+raw = pd.read_csv(proc / "monthly.csv", parse_dates=["period"], index_col="period")
 
-EST_END = "2024-06-01"
-regressors = ["depreciation_1m", "rate_spread", "inflation_yoy", "log_brent_lag1"]
-data = pd.DataFrame({
-    "dollarization": d["dollarization_pct"],
-    "depreciation_1m": d["usd_kzt_avg"].pct_change() * 100,
-    "rate_spread": d["rate_spread"],
-    "inflation_yoy": d["inflation_yoy_pct"],
-    "log_brent_lag1": np.log(d["brent_usd"]).shift(1),
-})
+HOLD_START = "2024-07-01"
 
-# ARDL(1,0,0,0,0) in error-correction form (exact rewrite, same fit):
-# d_dollarization_t = c + alpha * dollarization_{t-1} + sum(theta_j * x_j,t) + e_t
-eq = pd.DataFrame({"d_dollarization": data["dollarization"].diff(),
-                   "dollarization_L1": data["dollarization"].shift(1)})
-for r in regressors:
-    eq[r] = data[r]
-eq = eq.loc[:EST_END].dropna()
-y = eq["d_dollarization"]
-X = sm.add_constant(eq.drop(columns="d_dollarization"))
-print("Estimation sample:", eq.index[0].strftime("%Y-%m"), "to",
-      eq.index[-1].strftime("%Y-%m"), "| n =", len(eq))
+# Deposits are end-of-month stocks, so revaluation depends on the END-OF-MONTH exchange rate
+s_prev = raw["dollarization_pct"].shift(1) / 100          # FX share last month
+fx_ratio = raw["usd_kzt_eom"] / raw["usd_kzt_eom"].shift(1)  # tenge move this month
+s_mech = s_prev * fx_ratio / (1 - s_prev + s_prev * fx_ratio)
+reval = (s_mech - s_prev) * 100   # pure revaluation effect, percentage points
 
-ols = sm.OLS(y, X).fit()
-hac = sm.OLS(y, X).fit(cov_type="HAC", cov_kwds={"maxlags": 4})
+df = pd.DataFrame({
+    "dollarization": clean["dollarization_pct"],
+    "dollarization_raw": raw["dollarization_pct"],
+    "dep_avg": clean["usd_kzt_avg"].pct_change() * 100,
+    "dep_eom": raw["usd_kzt_eom"].pct_change() * 100,
+    "rate_spread": clean["rate_spread"],
+    "inflation_yoy": clean["inflation_yoy_pct"],
+    "log_brent_lag1": np.log(clean["brent_usd"]).shift(1),
+    "reval": reval,
+}).loc["2016-01-01":]
+df["dep_eom_scaled"] = df["dep_eom"] * s_prev * (1 - s_prev)
+other = ["rate_spread", "inflation_yoy", "log_brent_lag1"]
 
-# 1. Residual diagnostics
-resid = ols.resid
-bg = acorr_breusch_godfrey(ols, nlags=4, result_object=False)
-bp = het_breuschpagan(resid, X)
-jb = jarque_bera(resid)
-lb = acorr_ljungbox(resid, lags=[12], return_df=True)
-cusum = breaks_cusumolsresid(resid, ddof=X.shape[1])
-diag = pd.DataFrame([
-    ["Breusch-Godfrey (4 lags)", "no autocorrelation", bg[1]],
-    ["Ljung-Box (12 lags)", "no autocorrelation", lb["lb_pvalue"].iloc[0]],
-    ["Breusch-Pagan", "homoskedastic", bp[1]],
-    ["Jarque-Bera", "normal residuals", jb[1]],
-    ["CUSUM (OLS residuals)", "stable coefficients", cusum[1]],
-], columns=["test", "H0", "p-value"])
-diag["H0 rejected at 5%"] = diag["p-value"] < 0.05
-print("\nResidual diagnostics:")
-print(diag.round(3).to_string(index=False))
 
-# 2. Standard errors: plain OLS vs HAC (coefficients are identical)
-coef = pd.DataFrame({"coef": ols.params, "p (OLS)": ols.pvalues, "p (HAC)": hac.pvalues})
-print("\nCoefficients:")
-print(coef.round(4).to_string())
-print("R-squared:", round(ols.rsquared, 3), "| Durbin-Watson:",
-      round(sm.stats.stattools.durbin_watson(resid), 2))
+def make_eq(y_col, level_col, dep_col):
+    """Error-correction equation: change in y on lagged level, depreciation term and other drivers."""
+    eq = pd.DataFrame({"dy": y_col.diff() if dep_col != "behaviour" else y_col,
+                       "level_L1": level_col.shift(1)})
+    if dep_col not in (None, "behaviour"):
+        eq[dep_col] = df[dep_col]
+    for r in other:
+        eq[r] = df[r]
+    return eq.dropna()
 
-# 3. Bounds test, Pesaran-Shin-Smith (2001) case III, k = 4
-levels = ["dollarization_L1"] + regressors
-F = float(np.squeeze(ols.f_test(" = 0, ".join(levels) + " = 0").fvalue))
-t_alpha = ols.tvalues["dollarization_L1"]
-f_crit = {"10%": (2.45, 3.52), "5%": (2.86, 4.01), "1%": (3.74, 5.06)}
-t_crit = {"10%": (-2.57, -3.66), "5%": (-2.86, -3.99), "1%": (-3.43, -4.60)}
-print(f"\nBounds F = {F:.2f} | t(alpha) = {t_alpha:.2f}")
-for lvl in f_crit:
-    f0, f1 = f_crit[lvl]
-    t0, t1 = t_crit[lvl]
-    f_res = "cointegration" if F > f1 else ("no cointegration" if F < f0 else "inconclusive")
-    t_res = "cointegration" if t_alpha < t1 else ("no cointegration" if t_alpha > t0 else "inconclusive")
-    print(f"  {lvl}: F bounds {f0}/{f1} -> {f_res}; t bounds {t0}/{t1} -> {t_res}")
 
-# 4. Long-run effects and speed of adjustment (delta method)
-alpha = ols.params["dollarization_L1"]
-cov = ols.cov_params()
+# Candidate models (all re-estimated every month on data before the forecast month)
+models = {
+    "M0 current (avg rate)": make_eq(df["dollarization"], df["dollarization"], "dep_avg"),
+    "M1 end-of-month rate": make_eq(df["dollarization"], df["dollarization"], "dep_eom"),
+    "M2 eom rate x share(1-share)": make_eq(df["dollarization"], df["dollarization"], "dep_eom_scaled"),
+    # M4: revaluation computed exactly, regression explains only the behavioural change
+    "M4 exact revaluation + behaviour": make_eq(df["dollarization_raw"].diff() - df["reval"],
+                                                df["dollarization_raw"], "behaviour"),
+}
+
+actual = df["dollarization_raw"]
+hold = actual.loc[HOLD_START:].dropna().index
+fc = pd.DataFrame(index=hold)
+fc["actual"] = actual.loc[hold]
+fc["random_walk"] = actual.shift(1).loc[hold]
+fc["M3 revaluation only"] = actual.shift(1).loc[hold] + df["reval"].loc[hold]
+
+for name, eq in models.items():
+    preds = []
+    for t in hold:
+        train = eq.loc[:t - pd.DateOffset(months=1)]
+        fit = sm.OLS(train["dy"], sm.add_constant(train.drop(columns="dy"))).fit()
+        x_t = sm.add_constant(eq.drop(columns="dy"), has_constant="add").loc[[t]]
+        change = float(fit.predict(x_t).iloc[0])
+        if name.startswith("M4"):
+            change += df.loc[t, "reval"]
+        preds.append(actual.shift(1).loc[t] + change)
+    fc[name] = preds
+
+
+def dm_test(e_model, e_bench):
+    dlt = e_model ** 2 - e_bench ** 2
+    n = len(dlt)
+    dm = dlt.mean() / np.sqrt(dlt.var(ddof=1) / n) * np.sqrt((n - 1) / n)
+    return dm, 2 * stats.t.sf(abs(dm), df=n - 1)
+
+
+e_rw = fc["actual"] - fc["random_walk"]
+rmse_rw = np.sqrt((e_rw ** 2).mean())
 rows = []
-for r in regressors:
-    th = ols.params[r]
-    lr = -th / alpha
-    g = np.zeros(len(ols.params))
-    g[list(ols.params.index).index(r)] = -1 / alpha
-    g[list(ols.params.index).index("dollarization_L1")] = th / alpha ** 2
-    se = float(np.sqrt(g @ cov.values @ g))
-    rows.append({"variable": r, "long-run effect": lr, "se": se, "t": lr / se})
-print("\nSpeed of adjustment alpha:", round(alpha, 4),
-      "| half-life, months:", round(np.log(0.5) / np.log(1 + alpha), 1) if -1 < alpha < 0 else "n/a")
-print("Long-run effects:")
-print(pd.DataFrame(rows).round(3).to_string(index=False))
+for col in fc.columns.drop("actual"):
+    e = fc["actual"] - fc[col]
+    rmse = np.sqrt((e ** 2).mean())
+    dm, p = dm_test(e, e_rw) if col != "random_walk" else (np.nan, np.nan)
+    rows.append({"forecast": col, "RMSE": rmse, "MAE": e.abs().mean(),
+                 "RMSE ratio vs RW": rmse / rmse_rw, "DM stat": dm, "DM p": p})
+summary = pd.DataFrame(rows).sort_values("RMSE")
+print("Hold-out", hold[0].strftime("%Y-%m"), "to", hold[-1].strftime("%Y-%m"), "| months =", len(hold))
+print(summary.round(3).to_string(index=False))
+
+# Coefficient on the scaled depreciation term (pure revaluation predicts about 1)
+eq2 = models["M2 eom rate x share(1-share)"].loc[:"2024-06-01"]
+fit2 = sm.OLS(eq2["dy"], sm.add_constant(eq2.drop(columns="dy"))).fit()
+print("\nM2 coefficient on dep_eom_scaled:", round(fit2.params["dep_eom_scaled"], 3),
+      "(p =", round(fit2.pvalues["dep_eom_scaled"], 4), ") - pure revaluation would give 1.0")
 
 Path("outputs").mkdir(exist_ok=True)
-diag.to_csv(Path("outputs") / "revision_diagnostics.csv", index=False)
-coef.to_csv(Path("outputs") / "revision_coefficients.csv")
+fc.to_csv(Path("outputs") / "forecast_candidates.csv")
+summary.to_csv(Path("outputs") / "forecast_candidates_accuracy.csv", index=False)
 
-# 5. Residual plots
-fig, axes = plt.subplots(2, 1, figsize=(10, 7))
-axes[0].plot(resid.index, resid)
-axes[0].axhline(0, color="grey", lw=0.8)
-axes[0].set_title("Residuals over time")
-plot_acf(resid, lags=24, ax=axes[1], title="ACF of residuals")
+fig, ax = plt.subplots(figsize=(11, 5))
+ax.plot(fc.index, fc["actual"], color="black", lw=2.5, label="actual")
+ax.plot(fc.index, fc["random_walk"], color="grey", ls=":", label="random walk")
+best = summary["forecast"].iloc[0] if summary["forecast"].iloc[0] != "random_walk" else summary["forecast"].iloc[1]
+ax.plot(fc.index, fc["M0 current (avg rate)"], alpha=0.6, label="M0 current")
+ax.plot(fc.index, fc[best], lw=1.8, label=f"best: {best}")
+ax.set_title("Hold-out nowcasts of dollarization, %")
+ax.legend()
 plt.tight_layout()
 plt.show()
